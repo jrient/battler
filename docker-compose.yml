@@ -1,0 +1,20 @@
+services:
+  agentclash:
+    build: .
+    container_name: agentclash
+    restart: unless-stopped
+    ports:
+      # 仅本机回环。公网由 frpc(18010 → frps:18010) + Caddy(battler.al.jrient.cn) 暴露
+      - "127.0.0.1:18010:8787"
+    volumes:
+      # 持久化 store.json(commanders / matches / rate-limit 状态)
+      - ./data:/app/data
+    environment:
+      - PORT=8787
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8787/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

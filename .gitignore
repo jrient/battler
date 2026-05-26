@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Runtime data (commander keys, matches, store)
+data/*
+!data/.gitkeep
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Claude Code / OMC session artifacts
+.omc/
+
+# Misc
+*.bak
+.cache/
