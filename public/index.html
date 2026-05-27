@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash — Battle Replay</title>
+  <link rel="stylesheet" href="replay.css?v=7">
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <h1>⚔️ AgentClash</h1>
+      <div id="match-input">
+        <input type="text" id="matchIdInput" placeholder="输入 Match ID (如 sim_xxx)">
+        <button id="loadBtn">加载战报</button>
+      </div>
+    </header>
+
+    <div id="loading" class="hidden">加载中...</div>
+    <div id="error" class="hidden"></div>
+    <div id="no-snapshots" class="hidden">
+      <p>⚠️ 该对战记录早于回放功能上线，无法播放动画回放。</p>
+      <p>你可以查看下方的事件日志。</p>
+    </div>
+
+    <div id="replay" class="hidden">
+      <div id="main-area">
+        <div id="board-container">
+          <div id="board"></div>
+        </div>
+        <aside id="sidebar">
+          <div id="turn-info">
+            <span id="turn-label">回合 1 / 10</span>
+            <span id="phase-label">—</span>
+          </div>
+          <div id="army-header">
+            <div class="army-col side-a">
+              <span class="dot blue"></span>
+              <span id="sideA-name">蓝方</span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="army-col side-b">
+              <span id="sideB-name">红方</span>
+              <span class="dot red"></span>
+            </div>
+          </div>
+          <div id="unit-detail" class="hidden">
+            <div id="detail-icon"></div>
+            <div id="detail-info">
+              <div id="detail-name"></div>
+              <div id="detail-type"></div>
+              <div id="detail-hp-bar"><div id="detail-hp-fill"></div></div>
+              <div id="detail-stats"></div>
+            </div>
+          </div>
+          <div id="match-summary">
+            <h3>战局摘要</h3>
+            <div id="summary-content"></div>
+          </div>
+          <div id="roster">
+            <h3>单位列表</h3>
+            <div id="roster-a" class="roster-group"></div>
+            <div id="roster-b" class="roster-group"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="controls">
+        <button id="btnReset" title="回到开始">⏮</button>
+        <button id="btnPrev" title="上一步">⏪</button>
+        <button id="btnPlay" title="播放/暂停">▶️</button>
+        <button id="btnNext" title="下一步">⏩</button>
+        <button id="btnEnd" title="跳到最后">⏭</button>
+        <input type="range" id="turnSlider" min="0" max="1" value="0">
+        <select id="speedSelect">
+          <option value="0.5">0.5x</option>
+          <option value="1">1x</option>
+          <option value="2" selected>2x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="events-panel" class="hidden">
+      <h3>事件日志</h3>
+      <div id="events-list"></div>
+    </div>
+  </div>
+
+  <script src="replay.js?v=7"></script>
+</body>
+</html>

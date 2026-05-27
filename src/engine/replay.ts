@@ -1,4 +1,4 @@
-import type { ArmyEntry, MatchOutput, Side } from "./types.js";
+import type { ArmyEntry, MatchOutput, Side, TurnSnapshot } from "./types.js";
 
 export interface CommanderMeta {
   id: string;
@@ -13,6 +13,7 @@ export interface AgentJson {
   enemyCommander: CommanderMeta;
   myArmy: ArmyEntry[];
   enemyArmy: ArmyEntry[];
+  turnSnapshots: TurnSnapshot[];
   events: string[];
   summary: {
     myUnitsLost: number;
@@ -53,6 +54,7 @@ export function toAgentJson(
     enemyCommander: enemyMeta,
     myArmy: meIsA ? match.armyA : match.armyB,
     enemyArmy: meIsA ? match.armyB : match.armyA,
+    turnSnapshots: match.turnSnapshots ?? [],
     events: rewriteEventsForViewer(match.events, viewerSide),
     summary: {
       myUnitsLost: meIsA ? s.aUnitsLost : s.bUnitsLost,

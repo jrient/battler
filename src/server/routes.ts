@@ -1,6 +1,9 @@
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { runMatch } from "../engine/battle.js";
@@ -10,7 +13,10 @@ import { BOTS, listBots, loadBotCode } from "../bots/registry.js";
 import {
   getCommanderByKey,
   getCommanderById,
+  createCommander,
   getMatch,
+  getMatchesByCommander,
+  listMatches,
   getSimulationLastAt,
   saveMatch,
   setSimulationLastAt,
@@ -36,6 +42,112 @@ const bearerAuth: MiddlewareHandler<{ Variables: Vars }> = async (c, next) => {
 
 app.get("/health", (c) => c.json({ ok: true }));
 
+const registerSchema = z.object({
+  displayName: z.string().min(1).max(64).optional().default("Commander"),
+});
+
+app.post("/api/register", async (c) => {
+  const body = await safeJson(c);
+  const parsed = registerSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    return c.json({ error: "bad_request", message: parsed.error.message }, 400);
+  }
+  const id = "cmd_" + nanoid(8);
+  const key = "ack_" + nanoid(24);
+  const rec = createCommander({ id, commanderKey: key, displayName: parsed.data.displayName });
+  return c.json({
+    commanderId: rec.id,
+    displayName: rec.displayName,
+    commanderKey: rec.commanderKey,
+    agentGuideUrl: "/api/agent-guide",
+    demoCode: DEMO_CODE,
+    message: "Save your commanderKey securely. You will need it as Bearer token for all authenticated API calls. Use demoCode to get started — POST it to /api/commander/code.",
+  }, 201);
+});
+
+const DEMO_CODE = `// AgentClash demo strategy — prioritizes high-threat targets with skill usage
+const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
+const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
+const THREAT = { mage: 10, priest: 8, archer: 7, spear: 4, knight: 2 };
+const RECRUIT_AP = { mage: 5, archer: 4, priest: 4, knight: 5, spear: 3 };
+
+export function decideTurn(ctx) {
+  const actions = [];
+  let ap = ctx.myAP;
+  if (!ctx.enemyUnits.length) return actions;
+
+  const targets = [...ctx.enemyUnits].sort((a, b) => THREAT[b.type] - THREAT[a.type]);
+
+  for (const u of ctx.myUnits) {
+    if (ap < 1) break;
+
+    if (u.type === "mage" && ap >= 3 && (u.cooldowns.fireball || 0) === 0) {
+      let bestPos = null, bestN = 0;
+      for (const e of ctx.enemyUnits) {
+        const n = ctx.enemyUnits.filter(o =>
+          Math.max(Math.abs(o.pos[0]-e.pos[0]), Math.abs(o.pos[1]-e.pos[1])) <= 1
+        ).length;
+        if (n > bestN) { bestN = n; bestPos = e.pos; }
+      }
+      if (bestN >= 2 && bestPos && mhd(u.pos, bestPos) <= RANGE.mage) {
+        actions.push({ unitId: u.id, action: "skill", skill: "fireball", target: bestPos });
+        ap -= 3; continue;
+      }
+    }
+
+    if (u.type === "priest" && ap >= 2 && (u.cooldowns.heal || 0) === 0) {
+      const w = ctx.myUnits.filter(a => a.id !== u.id && a.hp < a.maxHp * 0.6)
+        .sort((a, b) => a.hp - b.hp);
+      const t = w.find(a => mhd(u.pos, a.pos) <= RANGE.priest);
+      if (t) {
+        actions.push({ unitId: u.id, action: "skill", skill: "heal", target: t.id });
+        ap -= 2; continue;
+      }
+    }
+
+    const range = RANGE[u.type];
+    const hit = targets.find(e => mhd(u.pos, e.pos) <= range);
+    if (hit) {
+      actions.push({ unitId: u.id, action: "attack", targetUnitId: hit.id });
+      ap -= 1; continue;
+    }
+    const goal = targets[0];
+    if (goal) {
+      const dest = step(u.pos, goal.pos, MOVE[u.type]);
+      actions.push({ unitId: u.id, action: "move", target: dest });
+      ap -= 1;
+    }
+  }
+
+  const rp = ctx.myRecruitAP || 0;
+  let rpLeft = rp;
+  for (const t of ["mage","archer","knight","spear","priest"]) {
+    while (rpLeft >= RECRUIT_AP[t]) { actions.push({ action: "recruit", unitType: t }); rpLeft -= RECRUIT_AP[t]; }
+  }
+  return actions;
+}
+
+function mhd(a, b) { return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
+function step(from, to, max) {
+  let left = max;
+  const dxM = Math.min(Math.abs(to[0]-from[0]), left);
+  const dx = Math.sign(to[0]-from[0]) * dxM; left -= dxM;
+  const dyM = Math.min(Math.abs(to[1]-from[1]), left);
+  const dy = Math.sign(to[1]-from[1]) * dyM;
+  return [from[0]+dx, from[1]+dy];
+}`;
+
+app.get("/api/agent-guide", (c) => {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const mdPath = resolve(__dirname, "..", "..", "AGENT_GUIDE.md");
+  try {
+    const md = readFileSync(mdPath, "utf8");
+    return c.text(md, 200, { "content-type": "text/markdown; charset=utf-8" });
+  } catch {
+    return c.text("not found", 404);
+  }
+});
+
 app.get("/api/opponents", (c) =>
   c.json(
     listBots().map((b) => ({
@@ -51,6 +163,61 @@ app.get("/bots/:id/code.js", (c) => {
   const id = c.req.param("id");
   if (!BOTS[id]) return c.text("not found", 404);
   return c.text(loadBotCode(id), 200, { "content-type": "application/javascript" });
+});
+
+app.get("/api/commanders/:id/matches", (c) => {
+  const id = c.req.param("id");
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? 20)));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0));
+  const matches = getMatchesByCommander(id, limit, offset);
+  return c.json(matches.map((m) => {
+    const isA = m.participantA.commanderId === id;
+    const myJson = isA ? m.agentJsonForA : m.agentJsonForB;
+    return {
+      matchId: m.matchId,
+      createdAt: m.createdAt,
+      type: m.type,
+      opponent: isA ? m.participantB.submittedBy : m.participantA.submittedBy,
+      result: myJson.result,
+      summary: myJson.summary,
+    };
+  }));
+});
+
+app.get("/api/matches", (c) => {
+  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 50)));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0));
+  const { matches, total } = listMatches(limit, offset);
+  return c.json({
+    total,
+    limit,
+    offset,
+    matches: matches.map((m) => ({
+      matchId: m.matchId,
+      createdAt: m.createdAt,
+      type: m.type,
+      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy },
+      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy },
+      resultA: m.agentJsonForA.result,
+      summary: m.agentJsonForA.summary,
+    })),
+  });
+});
+
+// Public replay endpoint — must be before auth middleware
+app.get("/api/matches/:id/replay", (c) => {
+  const id = c.req.param("id");
+  const m = getMatch(id);
+  if (!m) return c.json({ error: "not_found" }, 404);
+  return c.json({
+    matchId: m.matchId,
+    createdAt: m.createdAt,
+    participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, version: m.participantA.version },
+    participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, version: m.participantB.version },
+    turnSnapshots: m.agentJsonForA.turnSnapshots ?? [],
+    events: m.agentJsonForA.events,
+    summary: m.agentJsonForA.summary,
+  });
 });
 
 app.use("/api/commander/*", bearerAuth);

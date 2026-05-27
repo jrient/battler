@@ -1,4 +1,4 @@
-import { UNITS, ARMY_BUDGET, ARMY_BUDGET_TOLERANCE, BOARD_HEIGHT } from "./units.js";
+import { UNITS, ARMY_BUDGET, ARMY_BUDGET_TOLERANCE, BOARD_WIDTH, BOARD_HEIGHT } from "./units.js";
 import { pick, shuffle, type Rng } from "./rng.js";
 import type { Unit, UnitType, Side, ArmyEntry, Position } from "./types.js";
 
@@ -58,7 +58,7 @@ function toArmyEntries(draws: UnitType[]): ArmyEntry[] {
 }
 
 function placeUnits(draws: UnitType[], side: Side, rng: Rng): Unit[] {
-  const cols = side === "A" ? [0, 1] : [6, 7];
+  const cols = side === "A" ? [0, 1, 2, 3] : [BOARD_WIDTH - 4, BOARD_WIDTH - 3, BOARD_WIDTH - 2, BOARD_WIDTH - 1];
   const positions: Position[] = [];
   for (const c of cols) {
     for (let r = 0; r < BOARD_HEIGHT; r++) {

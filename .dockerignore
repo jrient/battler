@@ -11,6 +11,5 @@ data
 .idea
 .DS_Store
 SPEC.md
-AGENT_GUIDE.md
 DEPLOY.md
 /tmp

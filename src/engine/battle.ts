@@ -3,7 +3,10 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
   MAX_TURNS,
+  RECRUIT_TURNS,
   AP_PER_TURN,
+  RECRUIT_AP_BASE,
+  RECRUIT_AP_PER_TURN,
   FIREBALL_DAMAGE,
   FIREBALL_AOE_RADIUS,
   HEAL_AMOUNT,
@@ -16,11 +19,15 @@ import type {
   DecideCtx,
   DecideFn,
   MatchOutput,
+  PhaseSnapshot,
   Position,
   PublicUnit,
   Side,
   TurnRecord,
+  TurnSnapshot,
   Unit,
+  UnitSnapshot,
+  UnitType,
 } from "./types.js";
 
 export interface RunMatchOptions {
@@ -36,13 +43,30 @@ interface ValidatedAction {
   raw: Action;
 }
 
+interface ValidatedRecruit {
+  unitType: UnitType;
+  recruitAP: number;
+  side: Side;
+}
+
 export function runMatch(opts: RunMatchOptions): MatchOutput {
   const rng = makeRng(opts.seed);
   const deal = dealArmies(rng);
   const units: Unit[] = [...deal.unitsA, ...deal.unitsB];
 
+  // Track unit ID sequence counters per side for recruiting
+  const seqCounters: Record<Side, Record<UnitType, number>> = {
+    A: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
+    B: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
+  };
+  // Initialize from dealt units
+  for (const u of units) {
+    seqCounters[u.side][u.type]++;
+  }
+
   const allEvents: string[] = [];
   const turns: TurnRecord[] = [];
+  const turnSnapshots: TurnSnapshot[] = [];
   let totalDamageDealtA = 0;
   let totalDamageDealtB = 0;
   let aLost = 0;
@@ -54,40 +78,68 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
   let winner: Side | "draw" | null = null;
   let turnIdx = 0;
 
+  let recruitPoolA = 0;
+  let recruitPoolB = 0;
+
   for (turnIdx = 1; turnIdx <= MAX_TURNS; turnIdx++) {
     tickCooldowns(units);
     clearDefending(units);
 
+    const startSnapshot = snapshotUnits(units);
+    const phases: PhaseSnapshot[] = [];
+
     const aliveA = units.filter((u) => u.side === "A" && u.hp > 0);
     const aliveB = units.filter((u) => u.side === "B" && u.hp > 0);
 
-    const ctxA = buildCtx(aliveA, aliveB, deal.armyA, deal.armyB, turnIdx, turns, opts.seed, "A");
-    const ctxB = buildCtx(aliveB, aliveA, deal.armyB, deal.armyA, turnIdx, turns, opts.seed, "B");
+    if (turnIdx <= RECRUIT_TURNS) {
+      const add = turnIdx === 1 ? RECRUIT_AP_BASE : RECRUIT_AP_PER_TURN;
+      recruitPoolA += add;
+      recruitPoolB += add;
+    }
+    const recruitAPA = turnIdx <= RECRUIT_TURNS ? recruitPoolA : 0;
+    const recruitAPB = turnIdx <= RECRUIT_TURNS ? recruitPoolB : 0;
+
+    const ctxA = buildCtx(aliveA, aliveB, deal.armyA, deal.armyB, turnIdx, turns, opts.seed, "A", recruitAPA);
+    const ctxB = buildCtx(aliveB, aliveA, deal.armyB, deal.armyA, turnIdx, turns, opts.seed, "B", recruitAPB);
 
     const rawA = safeDecide(opts.decideA, ctxA);
     const rawB = safeDecide(opts.decideB, ctxB);
 
-    const actsA = validateAndTruncate(rawA, units, "A");
-    const actsB = validateAndTruncate(rawB, units, "B");
+    const { combat: actsA, recruits: recA } = validateAndSplit(rawA, units, "A", recruitAPA);
+    const { combat: actsB, recruits: recB } = validateAndSplit(rawB, units, "B", recruitAPB);
+
+    const spentA = recA.reduce((s, r) => s + r.recruitAP, 0);
+    const spentB = recB.reduce((s, r) => s + r.recruitAP, 0);
+    recruitPoolA -= spentA;
+    recruitPoolB -= spentB;
 
     const turnEvents: string[] = [];
     const turnEventsHeader = `[T${turnIdx}] -- turn start --`;
     turnEvents.push(turnEventsHeader);
 
     applyDefendIntents([...actsA, ...actsB], turnEvents);
+    phases.push({ phase: "defend", units: snapshotUnits(units) });
 
     phaseMovement([...actsA, ...actsB], units, turnEvents);
+    phases.push({ phase: "move", units: snapshotUnits(units) });
 
     const dmgFromA = phaseAttack(actsA, units, turnEvents);
     const dmgFromB = phaseAttack(actsB, units, turnEvents);
     totalDamageDealtA += dmgFromA;
     totalDamageDealtB += dmgFromB;
+    phases.push({ phase: "attack", units: snapshotUnits(units) });
 
     phaseSkill([...actsA, ...actsB], units, turnEvents);
+    phases.push({ phase: "skill", units: snapshotUnits(units) });
 
     const deaths = phaseDeath(units, turnEvents);
     aLost += deaths.aLost;
     bLost += deaths.bLost;
+    phases.push({ phase: "death", units: snapshotUnits(units) });
+
+    phaseRecruit(recA, units, seqCounters, rng, turnEvents);
+    phaseRecruit(recB, units, seqCounters, rng, turnEvents);
+    phases.push({ phase: "recruit", units: snapshotUnits(units) });
 
     const turnDamage = dmgFromA + dmgFromB;
     if (turnDamage > maxDamageInTurn) {
@@ -96,12 +148,16 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       decisiveEvent = `T${turnIdx} dealt ${turnDamage} total damage (A→B ${dmgFromA}, B→A ${dmgFromB})`;
     }
 
+    const allActionsA = [...actsA.map((a) => a.raw), ...recA.map((r) => ({ action: "recruit" as const, unitType: r.unitType }))];
+    const allActionsB = [...actsB.map((a) => a.raw), ...recB.map((r) => ({ action: "recruit" as const, unitType: r.unitType }))];
+
     turns.push({
       turn: turnIdx,
-      myActions: actsA.map((a) => a.raw),
-      enemyActions: actsB.map((a) => a.raw),
+      myActions: allActionsA,
+      enemyActions: allActionsB,
       events: turnEvents,
     });
+    turnSnapshots.push({ turn: turnIdx, start: startSnapshot, phases });
     allEvents.push(...turnEvents);
 
     const stillAliveA = units.filter((u) => u.side === "A" && u.hp > 0).length;
@@ -151,6 +207,7 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     armyB: deal.armyB,
     events: allEvents,
     turns,
+    turnSnapshots,
     summary: {
       aUnitsLost: aLost,
       bUnitsLost: bLost,
@@ -193,6 +250,7 @@ function validateAndTruncate(raw: Action[], allUnits: Unit[], side: Side): Valid
 
   for (const a of raw) {
     if (!a || typeof a !== "object") continue;
+    if (a.action === "recruit") continue; // handled by validateAndSplit
     if (typeof a.unitId !== "string") continue;
     if (usedUnitIds.has(a.unitId)) continue;
 
@@ -208,6 +266,48 @@ function validateAndTruncate(raw: Action[], allUnits: Unit[], side: Side): Valid
     apRemaining -= apCost;
   }
   return validated;
+}
+
+function validateAndSplit(
+  raw: Action[],
+  allUnits: Unit[],
+  side: Side,
+  recruitBudget: number,
+): { combat: ValidatedAction[]; recruits: ValidatedRecruit[] } {
+  const combat: ValidatedAction[] = [];
+  const recruits: ValidatedRecruit[] = [];
+  const usedUnitIds = new Set<string>();
+  let apRemaining = AP_PER_TURN;
+  let rpRemaining = recruitBudget;
+
+  for (const a of raw) {
+    if (!a || typeof a !== "object") continue;
+
+    if (a.action === "recruit") {
+      const unitType = (a as { action: "recruit"; unitType: UnitType }).unitType;
+      if (!UNITS[unitType]) continue;
+      const cost = UNITS[unitType].recruitAP;
+      if (cost > rpRemaining) continue;
+      recruits.push({ unitType, recruitAP: cost, side });
+      rpRemaining -= cost;
+      continue;
+    }
+
+    if (typeof a.unitId !== "string") continue;
+    if (usedUnitIds.has(a.unitId)) continue;
+
+    const unit = allUnits.find((u) => u.id === a.unitId && u.side === side && u.hp > 0);
+    if (!unit) continue;
+
+    const apCost = computeApCost(a, unit);
+    if (apCost === null) continue;
+    if (apCost > apRemaining) continue;
+
+    combat.push({ unit, apCost, raw: a });
+    usedUnitIds.add(a.unitId);
+    apRemaining -= apCost;
+  }
+  return { combat, recruits };
 }
 
 function computeApCost(action: Action, unit: Unit): number | null {
@@ -388,6 +488,53 @@ function phaseDeath(units: Unit[], events: string[]): { aLost: number; bLost: nu
   return { aLost, bLost };
 }
 
+function phaseRecruit(
+  recruits: ValidatedRecruit[],
+  allUnits: Unit[],
+  seqCounters: Record<Side, Record<UnitType, number>>,
+  rng: ReturnType<typeof makeRng>,
+  events: string[],
+): void {
+  for (const r of recruits) {
+    const def = UNITS[r.unitType];
+    const side = r.side;
+    seqCounters[side][r.unitType]++;
+    const id = `${r.unitType}_${side}${seqCounters[side][r.unitType]}`;
+
+    const cols = side === "A" ? [0, 1, 2, 3] : [BOARD_WIDTH - 4, BOARD_WIDTH - 3, BOARD_WIDTH - 2, BOARD_WIDTH - 1];
+    const emptyCells: Position[] = [];
+    for (const c of cols) {
+      for (let row = 0; row < BOARD_HEIGHT; row++) {
+        const pos: Position = [c, row];
+        if (!allUnits.some((u) => u.hp > 0 && samePos(u.pos, pos))) {
+          emptyCells.push(pos);
+        }
+      }
+    }
+
+    if (emptyCells.length === 0) {
+      events.push(`[rec] ${side} recruit ${r.unitType} failed: no space in spawn zone`);
+      continue;
+    }
+
+    const idx = Math.floor(rng() * emptyCells.length);
+    const pos = emptyCells[idx]!;
+
+    const unit: Unit = {
+      id,
+      type: r.unitType,
+      side,
+      pos,
+      hp: def.hp,
+      maxHp: def.hp,
+      cooldowns: {},
+      defending: false,
+    };
+    allUnits.push(unit);
+    events.push(`[rec] ${side} recruited ${id} at [${pos[0]},${pos[1]}]`);
+  }
+}
+
 function applyDamage(target: Unit, rawDmg: number): number {
   let dmg = rawDmg;
   if (UNITS[target.type].special === "damage_reduction_half") dmg = Math.floor(dmg / 2);
@@ -411,6 +558,7 @@ function buildCtx(
   history: TurnRecord[],
   seed: number,
   side: Side,
+  recruitAP: number,
 ): DecideCtx {
   const sideRng = makeRng(seed ^ (turn * 0x9e3779b1) ^ (side === "A" ? 1 : 2));
   return {
@@ -419,6 +567,7 @@ function buildCtx(
     myArmy,
     enemyArmy,
     myAP: AP_PER_TURN,
+    myRecruitAP: recruitAP,
     turn,
     history,
     rng: sideRng,
@@ -438,6 +587,19 @@ function toPublic(u: Unit): PublicUnit {
     maxHp: u.maxHp,
     cooldowns,
   };
+}
+
+function snapshotUnits(units: Unit[]): UnitSnapshot[] {
+  return units.map((u) => ({
+    id: u.id,
+    type: u.type,
+    side: u.side,
+    pos: [u.pos[0], u.pos[1]] as Position,
+    hp: u.hp,
+    maxHp: u.maxHp,
+    defending: u.defending,
+    cooldowns: { ...u.cooldowns },
+  }));
 }
 
 function manhattan(a: Position, b: Position): number {

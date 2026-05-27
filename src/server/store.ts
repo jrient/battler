@@ -185,3 +185,19 @@ export function listCommanders(): CommanderRecord[] {
   ensureLoaded();
   return Object.values(state.commanders);
 }
+
+export function getMatchesByCommander(commanderId: string, limit = 20, offset = 0): MatchRecord[] {
+  ensureLoaded();
+  const cmd = state.commanders[commanderId];
+  if (!cmd) return [];
+  const ids = cmd.recentMatchIds.slice(offset, offset + limit);
+  return ids.map(id => state.matches[id]).filter((m): m is MatchRecord => !!m);
+}
+
+export function listMatches(limit = 50, offset = 0): { matches: MatchRecord[]; total: number } {
+  ensureLoaded();
+  const all = Object.values(state.matches).sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt),
+  );
+  return { matches: all.slice(offset, offset + limit), total: all.length };
+}

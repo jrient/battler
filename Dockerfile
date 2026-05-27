@@ -6,7 +6,9 @@ COPY package.json ./
 RUN npm install --no-audit --no-fund
 
 COPY tsconfig.json ./
+COPY AGENT_GUIDE.md ./
 COPY src ./src
+COPY public ./public
 
 ENV PORT=8787
 ENV NODE_ENV=production
