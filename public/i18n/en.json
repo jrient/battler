@@ -82,6 +82,17 @@
   "arena.delta_zero": "±0",
   "arena.error.pick_both": "Pick both your commander and an opponent",
 
+  "leaderboard.title": "Leaderboard",
+  "leaderboard.subtitle": "Commanders with published code ranked by ELO score",
+  "leaderboard.col.tier": "Tier",
+  "leaderboard.col.name": "Name",
+  "leaderboard.col.score": "Score",
+  "leaderboard.col.wins": "W",
+  "leaderboard.col.losses": "L",
+  "leaderboard.col.winrate": "Win %",
+  "leaderboard.matches": "View →",
+  "leaderboard.empty": "No commanders with published code yet",
+
   "replay.input.placeholder": "Enter Match ID (e.g. sim_xxx)",
   "replay.input.load": "Load",
   "replay.no_snapshots.line1": "⚠ This match predates the replay feature — no animation available.",

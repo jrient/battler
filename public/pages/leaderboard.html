@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .lb-wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+    .lb-head { margin-bottom: 16px; }
+    .lb-head h1 { font-size: 22px; color: var(--text); margin: 0 0 4px; }
+    .lb-head .subtitle { color: var(--text-dim); font-size: 13px; margin: 0; }
+
+    .lb-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .lb-table th { text-align: left; padding: 10px 14px; font-size: 12px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .lb-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .lb-table tr:last-child td { border-bottom: none; }
+    .lb-table tr:hover { background: rgba(255,255,255,0.02); }
+    .lb-table tr.top1 { background: rgba(218,165,32,0.06); }
+    .lb-table tr.top2 { background: rgba(180,180,180,0.04); }
+    .lb-table tr.top3 { background: rgba(180,120,50,0.04); }
+
+    .rank-num { font-size: 16px; font-weight: 800; color: var(--text-dim); width: 32px; text-align: center; }
+    .rank-num.top1 { color: var(--gold); font-size: 20px; }
+    .rank-num.top2 { color: #bbb; font-size: 18px; }
+    .rank-num.top3 { color: #b96; font-size: 17px; }
+
+    .tier-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tier-Master { background: #c8a; color: #fff; }
+    .tier-Diamond { background: #a8f; color: #fff; }
+    .tier-Platinum { background: #68c; color: #fff; }
+    .tier-Gold { background: #db0; color: #222; }
+    .tier-Silver { background: #889; color: #fff; }
+    .tier-Bronze { background: #864; color: #fff; }
+
+    .name-cell { font-weight: 600; color: var(--text); }
+    .score-cell { font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+    .stat-cell { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+    .pct-cell { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+    .placement-cell { font-size: 11px; color: var(--gold); }
+
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .error-state { text-align: center; padding: 60px 20px; color: #f66; }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .lb-table th:nth-child(4), .lb-table td:nth-child(4),
+      .lb-table th:nth-child(5), .lb-table td:nth-child(5),
+      .lb-table th:nth-child(6), .lb-table td:nth-child(6) { display: none; }
+      .lb-table th, .lb-table td { padding: 10px 8px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="lb-wrap">
+    <div class="lb-head">
+      <h1 data-i18n="leaderboard.title">排行榜</h1>
+      <p class="subtitle" data-i18n="leaderboard.subtitle">…</p>
+    </div>
+
+    <div id="content">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const content = document.getElementById("content");
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      function tierBadge(r) {
+        return `<span class="tier-badge tier-${r.tier}">${r.tier} ${r.division}</span>`;
+      }
+
+      function fmtPct(wins, losses) {
+        const total = wins + losses;
+        if (total === 0) return "—";
+        return ((wins / total) * 100).toFixed(0) + "%";
+      }
+
+      function rankClass(i) {
+        if (i === 0) return "top1";
+        if (i === 1) return "top2";
+        if (i === 2) return "top3";
+        return "";
+      }
+
+      function renderRow(cmd, i) {
+        const cls = rankClass(i);
+        const rankNum = cls ? ["🥇", "🥈", "🥉"][i] : (i + 1);
+        const placement = cmd.rank.placementMatches < 5
+          ? ` <span class="placement-cell">(${cmd.rank.placementMatches}/5)</span>`
+          : "";
+        return `
+          <tr class="${cls}">
+            <td class="rank-num ${cls}">${rankNum}</td>
+            <td>
+              <span class="tier-badge tier-${cmd.rank.tier}">${cmd.rank.tier} ${cmd.rank.division}</span>
+            </td>
+            <td class="name-cell">${escapeHtml(cmd.displayName)}${placement}</td>
+            <td class="score-cell">${cmd.rank.score}</td>
+            <td class="stat-cell">${cmd.rank.wins ?? 0}</td>
+            <td class="stat-cell">${cmd.rank.losses ?? 0}</td>
+            <td class="pct-cell">${fmtPct(cmd.rank.wins ?? 0, cmd.rank.losses ?? 0)}</td>
+          </tr>`;
+      }
+
+      async function load() {
+        try {
+          const data = await api.get("/api/commanders");
+          const commanders = data.commanders || [];
+          if (commanders.length === 0) {
+            content.innerHTML = `<div class="empty-state">${t("leaderboard.empty")}</div>`;
+            return;
+          }
+          content.innerHTML = `
+            <table class="lb-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>${t("leaderboard.col.tier")}</th>
+                  <th>${t("leaderboard.col.name")}</th>
+                  <th>${t("leaderboard.col.score")}</th>
+                  <th>${t("leaderboard.col.wins")}</th>
+                  <th>${t("leaderboard.col.losses")}</th>
+                  <th>${t("leaderboard.col.winrate")}</th>
+                </tr>
+              </thead>
+              <tbody>${commanders.map((c, i) => renderRow(c, i)).join("")}</tbody>
+            </table>`;
+        } catch (err) {
+          content.innerHTML = `<div class="error-state">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -268,10 +268,11 @@ const PAGE_FILES: Record<string, string> = {
   me: "me.html",
   matches: "matches.html",
   arena: "arena.html",
+  leaderboard: "leaderboard.html",
   stub: "stub.html",
 };
 
-const STUB_SECTIONS = ["army", "leaderboard", "about"] as const;
+const STUB_SECTIONS = ["army", "about"] as const;
 
 function pickLang(c: Context): "zh" | "en" {
   const cookieHeader = c.req.header("cookie") ?? "";
@@ -303,6 +304,8 @@ app.get("/zh/matches", (c) => servePage(c, "matches"));
 app.get("/en/matches", (c) => servePage(c, "matches"));
 app.get("/zh/arena", (c) => servePage(c, "arena"));
 app.get("/en/arena", (c) => servePage(c, "arena"));
+app.get("/zh/leaderboard", (c) => servePage(c, "leaderboard"));
+app.get("/en/leaderboard", (c) => servePage(c, "leaderboard"));
 for (const section of STUB_SECTIONS) {
   app.get(`/zh/${section}`, (c) => servePage(c, "stub"));
   app.get(`/en/${section}`, (c) => servePage(c, "stub"));
@@ -447,6 +450,8 @@ app.get("/api/commanders", (c) => {
         tier: cmd.rank.tier,
         division: cmd.rank.division,
         placementMatches: cmd.rank.placementMatches,
+        wins: cmd.rank.effectiveWins,
+        losses: cmd.rank.effectiveLosses,
       },
     }));
   return c.json({ commanders: items });

@@ -82,6 +82,17 @@
   "arena.delta_zero": "±0",
   "arena.error.pick_both": "请同时选择出战指挥官和对手",
 
+  "leaderboard.title": "排行榜",
+  "leaderboard.subtitle": "已发布代码的指挥官按 ELO 分数排名",
+  "leaderboard.col.tier": "段位",
+  "leaderboard.col.name": "名称",
+  "leaderboard.col.score": "分数",
+  "leaderboard.col.wins": "胜",
+  "leaderboard.col.losses": "负",
+  "leaderboard.col.winrate": "胜率",
+  "leaderboard.matches": "对战 →",
+  "leaderboard.empty": "还没有已发布代码的指挥官",
+
   "replay.input.placeholder": "输入 Match ID (如 sim_xxx)",
   "replay.input.load": "加载战报",
   "replay.no_snapshots.line1": "⚠ 该对战记录早于回放功能上线，无法播放动画回放。",
