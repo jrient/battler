@@ -1,6 +1,6 @@
 // AgentClash Battle Replay Viewer — Fire Emblem Style
 
-const CELL_SIZE = 48;
+const CELL_SIZE = 28;
 const CELL_GAP = 1;
 const STEP = CELL_SIZE + CELL_GAP;
 
@@ -70,13 +70,13 @@ class ReplayApp {
   buildBoard() {
     this.boardEl.innerHTML = "";
     this.cells = [];
-    for (let y = 0; y < 12; y++) {
-      for (let x = 0; x < 16; x++) {
+    for (let y = 0; y < 18; y++) {
+      for (let x = 0; x < 32; x++) {
         const cell = document.createElement("div");
         const isLight = (x + y) % 2 === 0;
         let cls = `cell ${isLight ? "grass-a" : "grass-b"}`;
         if (x <= 3) cls += " spawn-a";
-        else if (x >= 12) cls += " spawn-b";
+        else if (x >= 28) cls += " spawn-b";
         cell.className = cls;
         cell.dataset.x = x;
         cell.dataset.y = y;
@@ -87,8 +87,8 @@ class ReplayApp {
   }
 
   getCell(x, y) {
-    if (x < 0 || x >= 16 || y < 0 || y >= 12) return null;
-    return this.cells[y * 16 + x];
+    if (x < 0 || x >= 32 || y < 0 || y >= 18) return null;
+    return this.cells[y * 32 + x];
   }
 
   // Map event ID (my.archer_1, enemy.mage_1) to snapshot ID (archer_A1, mage_B1)
