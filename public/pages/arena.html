@@ -151,6 +151,19 @@
     }
     .replay-link:hover { text-decoration: underline; }
 
+    .replay-frame-wrap {
+      margin-top: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .replay-frame-wrap iframe {
+      width: 100%;
+      height: 640px;
+      border: none;
+      display: block;
+    }
+
     .error-line { color: #f66; font-size: 13px; margin-top: 8px; text-align: center; min-height: 18px; }
 
     .blocker { text-align: center; padding: 60px 20px; }
@@ -405,7 +418,10 @@
                 b: res.summary.enemyUnitsRemaining,
               })}
             </div>
-            <a class="replay-link" href="/${lang}/replay/${encodeURIComponent(res.matchId)}">${t("arena.result.replay")}</a>
+            <a class="replay-link" href="/${lang}/replay/${encodeURIComponent(res.matchId)}" target="_blank">${t("arena.result.replay")}</a>
+          </div>
+          <div class="replay-frame-wrap">
+            <iframe src="/${lang}/replay/${encodeURIComponent(res.matchId)}?autoplay=1"></iframe>
           </div>`;
       }
 

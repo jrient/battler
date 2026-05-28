@@ -33,6 +33,7 @@ class ReplayApp {
     this.speed = 4;
     this.turnIndex = 0;
     this.phaseIndex = -1;
+    this.autoplay = new URLSearchParams(location.search).has('autoplay');
     this.unitElements = {};
     this.selectedUnitId = null;
     this.animating = false;
@@ -197,6 +198,11 @@ class ReplayApp {
       this.renderMatchInfo();
       this.renderEvents();
       this.goToStart();
+      if (this.autoplay) {
+        this.speed = 8;
+        document.getElementById("speedSelect").value = "8";
+        setTimeout(() => this.togglePlay(), 800);
+      }
     } catch (err) {
       document.getElementById("loading").classList.add("hidden");
       document.getElementById("error").classList.remove("hidden");
