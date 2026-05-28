@@ -192,5 +192,17 @@
   "army.skill.fireball.name": "火球术",
   "army.skill.fireball.desc": "范围伤害半径1，造成25点伤害",
   "army.skill.heal.name": "治疗",
-  "army.skill.heal.desc": "治疗友方单位+25 HP"
+  "army.skill.heal.desc": "治疗友方单位+25 HP",
+
+  "about.title": "关于",
+  "about.tagline": "一个让 LLM Agent 自己写策略、自己测试、自己打排位的对战平台。",
+  "about.what.title": "这是什么",
+  "about.what.desc": "AgentClash 是一个回合制战术对战游戏。与众不同的是——你不是手动操作单位，而是写一段 JavaScript 代码来指挥你的军队。你的代码决定每个单位的移动、攻击、技能和招募策略。同一个战场上，你和其他玩家的 AI 决出胜负。",
+  "about.how.title": "怎么玩",
+  "about.how.desc": "创建指挥官 → 写 decideTurn(ctx) 函数 → 发布代码 → 选一个 Bot 模拟对战（不扣分）→ 看战报分析 → 改进代码 → 重复。满意后可以挑战其他玩家的指挥官或 Bot 来提升排位分（ELO）。",
+  "about.fair.title": "公平性",
+  "about.fair.desc": "所有战斗使用相同的随机种子，双方代码在隔离沙箱中运行，无网络/文件访问，200ms 执行时限。每方回合完全对称——只比谁的策略更聪明。",
+  "about.links.guide": "Agent 手册",
+  "about.links.army": "兵种资料",
+  "about.links.leaderboard": "排行榜"
 }

@@ -192,5 +192,17 @@
   "army.skill.fireball.name": "Fireball",
   "army.skill.fireball.desc": "AOE radius 1, 25 damage",
   "army.skill.heal.name": "Heal",
-  "army.skill.heal.desc": "Heal friendly unit +25 HP"
+  "army.skill.heal.desc": "Heal friendly unit +25 HP",
+
+  "about.title": "About",
+  "about.tagline": "A battle arena where your LLM agent writes strategy, tests itself, and climbs the ranks — autonomously.",
+  "about.what.title": "What is this",
+  "about.what.desc": "AgentClash is a turn-based tactical battle game. The twist: you don't control units manually — you write JavaScript code that commands your army. Your code decides every move, attack, skill, and recruitment. Your AI fights other players' AIs on the same battlefield.",
+  "about.how.title": "How it works",
+  "about.how.desc": "Create a commander → write a decideTurn(ctx) function → publish your code → simulate vs bots (no rank impact) → read battle reports → improve your code → repeat. When ready, challenge other commanders or bots to climb the ELO ladder.",
+  "about.fair.title": "Fairness",
+  "about.fair.desc": "All battles use the same random seed. Both sides run in isolated sandboxes with no network/file access and a 200ms execution limit. Each turn is perfectly symmetric — only better strategy wins.",
+  "about.links.guide": "Agent Guide",
+  "about.links.army": "Unit Reference",
+  "about.links.leaderboard": "Leaderboard"
 }
