@@ -82,7 +82,9 @@ const RESERVED_NAMES = new Set([
   "red-charger", "blue-turtle", "green-tactician",
 ]);
 
-const DISPLAY_NAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/;
+// Allow Unicode letters (incl. CJK) and digits, plus _ and -.
+// 3-32 UTF-16 code units (a single Han char is one code unit).
+const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N}_-]{3,32}$/u;
 
 export type DisplayNameValidation =
   | { ok: true; normalized: string }
