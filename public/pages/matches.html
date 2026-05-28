@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .matches-wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+    .matches-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+    .matches-head h1 { font-size: 22px; color: var(--text); margin: 0; }
+
+    .filter-tabs { display: flex; gap: 4px; background: var(--surface); border-radius: 8px; padding: 4px; border: 1px solid var(--border); }
+    .filter-tab { padding: 6px 14px; font-size: 13px; color: var(--text-dim); background: transparent; border: none; border-radius: 6px; cursor: pointer; }
+    .filter-tab.active { background: var(--gold); color: var(--bg); font-weight: 600; }
+    .filter-tab:hover:not(.active) { color: var(--text); }
+
+    .matches-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .matches-table th { text-align: left; padding: 10px 14px; font-size: 12px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .matches-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .matches-table tr:last-child td { border-bottom: none; }
+    .matches-table tr:hover { background: rgba(255,255,255,0.02); }
+
+    .vs-cell { color: var(--text-dim); margin: 0 6px; font-size: 11px; }
+    .name-a { color: var(--blue-light); }
+    .name-b { color: var(--red-light); }
+    .result-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; min-width: 56px; text-align: center; }
+    .result-badge.win { background: rgba(100,170,255,0.15); color: var(--blue-light); }
+    .result-badge.loss { background: rgba(255,100,100,0.15); color: var(--red-light); }
+    .result-badge.draw { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .type-chip { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); margin-left: 6px; vertical-align: middle; }
+    .type-chip.challenge { color: var(--gold); border-color: var(--gold); }
+    .time-cell { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .replay-link { color: var(--gold); text-decoration: none; font-size: 12px; }
+    .replay-link:hover { text-decoration: underline; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .signin-prompt { text-align: center; padding: 40px 20px; }
+    .signin-prompt a { color: var(--gold); text-decoration: none; font-weight: 600; }
+    .signin-prompt a:hover { text-decoration: underline; }
+
+    .load-more-row { text-align: center; margin-top: 16px; }
+    .load-more-btn { padding: 8px 20px; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .load-more-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .load-more-btn:disabled { color: var(--text-dim); cursor: not-allowed; }
+
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .matches-table th:nth-child(1), .matches-table td:nth-child(1) { display: none; }
+      .matches-table th, .matches-table td { padding: 10px 8px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="matches-wrap">
+    <div class="matches-head">
+      <h1 data-i18n="matches.title">对战记录</h1>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all" data-i18n="matches.filter.all">全部</button>
+        <button class="filter-tab" data-filter="mine" data-i18n="matches.filter.mine">我的</button>
+      </div>
+    </div>
+
+    <div id="content">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const PAGE_SIZE = 50;
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const content = document.getElementById("content");
+      let currentFilter = "all";
+      let offset = 0;
+      let rows = [];
+      let exhausted = false;
+      let signedIn = false;
+
+      try {
+        const who = await api.get("/api/me/whoami");
+        signedIn = !!who.signedIn;
+      } catch { /* keep signedIn=false */ }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      function fmtTime(iso) {
+        try {
+          const d = new Date(iso);
+          const today = new Date();
+          const sameDay = d.toDateString() === today.toDateString();
+          return sameDay
+            ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        } catch { return iso; }
+      }
+
+      function renderRow(m) {
+        const a = m.participantA.submittedBy || "—";
+        const b = m.participantB.submittedBy || "—";
+        const cls = m.resultA === "win" ? "win" : m.resultA === "loss" ? "loss" : "draw";
+        const label = t(`matches.result.${cls}`);
+        const typeChip = m.type === "challenge"
+          ? `<span class="type-chip challenge">${t("matches.type.challenge")}</span>`
+          : `<span class="type-chip">${t("matches.type.simulate")}</span>`;
+        return `
+          <tr>
+            <td class="time-cell">${escapeHtml(fmtTime(m.createdAt))}</td>
+            <td>
+              <span class="name-a">${escapeHtml(a)}</span>
+              <span class="vs-cell">VS</span>
+              <span class="name-b">${escapeHtml(b)}</span>
+              ${typeChip}
+            </td>
+            <td><span class="result-badge ${cls}">${label}</span></td>
+            <td><a class="replay-link" href="/${lang}/replay/${m.matchId}">${t("matches.view_replay")}</a></td>
+          </tr>`;
+      }
+
+      function renderTable() {
+        if (currentFilter === "mine" && !signedIn) {
+          content.innerHTML = `
+            <div class="signin-prompt">
+              <p>${t("matches.filter.mine_signin_hint")}</p>
+              <p style="margin-top:12px"><a href="/auth/github">${t("nav.login")}</a></p>
+            </div>`;
+          return;
+        }
+        if (rows.length === 0) {
+          content.innerHTML = `<div class="empty-state">${t("common.empty")}</div>`;
+          return;
+        }
+        const tableHtml = `
+          <table class="matches-table">
+            <thead>
+              <tr>
+                <th>${t("matches.col.time")}</th>
+                <th>${t("matches.col.players")}</th>
+                <th>${t("matches.col.result")}</th>
+                <th>${t("matches.col.action")}</th>
+              </tr>
+            </thead>
+            <tbody>${rows.map(renderRow).join("")}</tbody>
+          </table>
+          <div class="load-more-row">
+            <button class="load-more-btn" id="loadMoreBtn" ${exhausted ? "disabled" : ""}>
+              ${exhausted ? t("matches.no_more") : t("matches.load_more")}
+            </button>
+          </div>`;
+        content.innerHTML = tableHtml;
+        const btn = document.getElementById("loadMoreBtn");
+        if (btn && !exhausted) btn.addEventListener("click", () => loadPage(false));
+      }
+
+      async function loadPage(reset) {
+        if (reset) { rows = []; offset = 0; exhausted = false; }
+        if (currentFilter === "mine" && !signedIn) { renderTable(); return; }
+        content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        const url = currentFilter === "mine"
+          ? `/api/me/matches?limit=${PAGE_SIZE}&offset=${offset}`
+          : `/api/matches?limit=${PAGE_SIZE}&offset=${offset}`;
+        try {
+          const data = await api.get(url);
+          const batch = data.matches || [];
+          if (batch.length < PAGE_SIZE) exhausted = true;
+          rows = rows.concat(batch);
+          offset += batch.length;
+          renderTable();
+        } catch (err) {
+          content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      document.querySelectorAll(".filter-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".filter-tab").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentFilter = btn.dataset.filter;
+          loadPage(true);
+        });
+      });
+
+      loadPage(true);
+    })();
+  </script>
+</body>
+</html>

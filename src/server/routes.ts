@@ -17,6 +17,7 @@ import {
   createCommander,
   getMatch,
   getMatchesByCommander,
+  getMatchesByOwner,
   listMatches,
   getSimulationLastAt,
   saveMatch,
@@ -207,6 +208,26 @@ app.post("/api/me/commanders/:id/regenerate-bootstrap", (c) => {
   });
 });
 
+app.get("/api/me/matches", (c) => {
+  const user = c.get("user");
+  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 50)));
+  const offset = Math.max(0, Number(c.req.query("offset") ?? 0));
+  const matches = getMatchesByOwner(user.id, limit, offset);
+  return c.json({
+    limit,
+    offset,
+    matches: matches.map((m) => ({
+      matchId: m.matchId,
+      createdAt: m.createdAt,
+      type: m.type,
+      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy },
+      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy },
+      resultA: m.agentJsonForA.result,
+      summary: m.agentJsonForA.summary,
+    })),
+  });
+});
+
 app.post("/api/me/commanders/:id/reset-key", (c) => {
   const user = c.get("user");
   const cmd = getCommanderById(c.req.param("id"));
@@ -227,10 +248,11 @@ const PAGE_FILES: Record<string, string> = {
   home: "home.html",
   replay: "replay.html",
   me: "me.html",
+  matches: "matches.html",
   stub: "stub.html",
 };
 
-const STUB_SECTIONS = ["army", "leaderboard", "arena", "matches", "about"] as const;
+const STUB_SECTIONS = ["army", "leaderboard", "arena", "about"] as const;
 
 function pickLang(c: Context): "zh" | "en" {
   const cookieHeader = c.req.header("cookie") ?? "";
@@ -258,6 +280,8 @@ app.get("/zh/replay/:id", (c) => servePage(c, "replay"));
 app.get("/en/replay/:id", (c) => servePage(c, "replay"));
 app.get("/zh/me", (c) => servePage(c, "me"));
 app.get("/en/me", (c) => servePage(c, "me"));
+app.get("/zh/matches", (c) => servePage(c, "matches"));
+app.get("/en/matches", (c) => servePage(c, "matches"));
 for (const section of STUB_SECTIONS) {
   app.get(`/zh/${section}`, (c) => servePage(c, "stub"));
   app.get(`/en/${section}`, (c) => servePage(c, "stub"));
