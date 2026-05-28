@@ -208,8 +208,8 @@ class ReplayApp {
     const d = this.data;
     const pA = d.participantA;
     const pB = d.participantB;
-    document.getElementById("sideA-name").textContent = pA.submittedBy || t("replay.side_a.default");
-    document.getElementById("sideB-name").textContent = pB.submittedBy || t("replay.side_b.default");
+    document.getElementById("sideA-name").textContent = pA.displayName || pA.submittedBy || t("replay.side_a.default");
+    document.getElementById("sideB-name").textContent = pB.displayName || pB.submittedBy || t("replay.side_b.default");
 
     const summary = document.getElementById("summary-content");
     const result = d.summary;
