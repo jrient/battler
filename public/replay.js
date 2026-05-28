@@ -30,7 +30,7 @@ class ReplayApp {
   constructor() {
     this.data = null;
     this.playing = false;
-    this.speed = 2;
+    this.speed = 4;
     this.turnIndex = 0;
     this.phaseIndex = -1;
     this.unitElements = {};

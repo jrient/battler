@@ -56,7 +56,7 @@ export function decideTurn(ctx) {
   // ctx.enemyUnits — enemy alive units (array, fully visible)
   // ctx.myAP       — action points to operate units this turn (10)
   // ctx.myMoney    — money available to buy new units this turn
-  // ctx.turn       — turn number (1 to 50)
+  // ctx.turn       — turn number (1 to 100)
   // ctx.rng()      — random number [0,1), use instead of Math.random
 
   const COST = { knight:5, spear:3, archer:3, mage:4, priest:4 };
@@ -244,7 +244,7 @@ Both sides submit actions simultaneously. Engine resolves in order:
 ### Victory
 - Eliminate all enemy units → you win (only counts once that side has fielded a unit)
 - Both eliminated same turn → draw
-- After 50 turns → compare remaining army strength
+- After 100 turns → compare remaining army strength
 - Buy nothing the whole buy window and you'll have no army — you lose once the window closes
 
 ### Money & Buying
