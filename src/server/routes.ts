@@ -15,6 +15,7 @@ import {
   getCommanderByKey,
   getCommanderById,
   getCommanderByBootstrapToken,
+  findCommanderByDisplayName,
   createCommander,
   getMatch,
   getMatchesByCommander,
@@ -32,6 +33,9 @@ import {
   deleteCommander,
   regenerateCommanderBootstrapToken,
   resetCommanderKey,
+  renameCommander,
+  DISPLAY_NAME_RE,
+  isDisplayNameReserved,
   type CommanderRecord,
   type UserRecord,
 } from "./store.js";
@@ -197,6 +201,38 @@ app.delete("/api/me/commanders/:id", (c) => {
   }
   deleteCommander(cmd.id);
   return c.json({ ok: true });
+});
+
+const renameSchema = z.object({
+  displayName: z.string().min(3).max(32),
+});
+
+app.patch("/api/me/commanders/:id", async (c) => {
+  const user = c.get("user");
+  const cmd = getCommanderById(c.req.param("id"));
+  if (!cmd || cmd.ownerId !== user.id) {
+    return c.json({ error: "not_found" }, 404);
+  }
+  const body = await safeJson(c);
+  const parsed = renameSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    return c.json({ error: "bad_request", message: parsed.error.message }, 400);
+  }
+  const name = parsed.data.displayName;
+  if (!DISPLAY_NAME_RE.test(name)) {
+    return c.json({ error: "bad_request", reason: "format" }, 409);
+  }
+  if (isDisplayNameReserved(name)) {
+    return c.json({ error: "bad_request", reason: "reserved" }, 409);
+  }
+  // Allow keeping the same name; only reject if a *different* commander already has it
+  const existing = findCommanderByDisplayName(name);
+  if (existing && existing.id !== cmd.id) {
+    return c.json({ error: "bad_request", reason: "taken" }, 409);
+  }
+  const updated = renameCommander(cmd.id, name);
+  if (!updated) return c.json({ error: "not_found" }, 404);
+  return c.json({ displayName: updated.displayName });
 });
 
 app.post("/api/me/commanders/:id/regenerate-bootstrap", (c) => {

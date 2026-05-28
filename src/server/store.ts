@@ -351,6 +351,21 @@ export function deleteCommander(id: string): boolean {
   return true;
 }
 
+export function renameCommander(id: string, newName: string): CommanderRecord | null {
+  ensureLoaded();
+  const rec = state.commanders[id];
+  if (!rec) return null;
+  rec.displayName = newName;
+  flush();
+  return rec;
+}
+
+export const DISPLAY_NAME_RE = DISPLAY_NAME_PATTERN;
+
+export function isDisplayNameReserved(name: string): boolean {
+  return RESERVED_NAMES.has(name.toLowerCase());
+}
+
 export function applyRankUpdate(id: string, newRank: RankInfo): CommanderRecord | null {
   ensureLoaded();
   const rec = state.commanders[id];

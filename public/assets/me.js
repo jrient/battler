@@ -65,8 +65,11 @@
     return `
       <div class="manage-panel">
         <div class="manage-header">
-          <h3>${t("me.manage.title")}: ${escapeHtml(cmd.displayName)}</h3>
-          <button class="btn btn-sm btn-secondary btn-close-manage">${t("me.manage.close")}</button>
+          <h3>${t("me.manage.title")}: <span class="manage-cmd-name">${escapeHtml(cmd.displayName)}</span><input class="manage-rename-input" data-id="${cmd.commanderId}" value="${escapeHtml(cmd.displayName)}" maxlength="32" style="display:none;width:140px;padding:4px 8px;background:var(--bg);border:1px solid var(--gold);color:var(--text);border-radius:4px;font-size:14px;margin-left:4px"></h3>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm btn-secondary btn-rename-toggle" data-id="${cmd.commanderId}">✏</button>
+            <button class="btn btn-sm btn-secondary btn-close-manage">${t("me.manage.close")}</button>
+          </div>
         </div>
         <div class="manage-sections">
           <div class="manage-section">
@@ -160,6 +163,45 @@
     const closeBtn = $(".btn-close-manage");
     if (closeBtn) {
       closeBtn.addEventListener("click", () => { onboardingContainer.innerHTML = ""; });
+    }
+
+    // Rename toggle
+    const renameBtn = $(".btn-rename-toggle");
+    const nameSpan = $(".manage-cmd-name");
+    const nameInput = $(".manage-rename-input");
+    if (renameBtn && nameSpan && nameInput) {
+      renameBtn.addEventListener("click", () => {
+        if (nameInput.style.display === "none") {
+          nameSpan.style.display = "none";
+          nameInput.style.display = "inline-block";
+          nameInput.focus();
+          nameInput.select();
+        } else {
+          cancelRename();
+        }
+      });
+      const cancelRename = () => {
+        nameInput.style.display = "none";
+        nameSpan.style.display = "inline";
+        nameInput.value = nameSpan.textContent;
+      };
+      nameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); nameInput.blur(); }
+        if (e.key === "Escape") cancelRename();
+      });
+      nameInput.addEventListener("blur", async () => {
+        const newName = nameInput.value.trim();
+        if (!newName || newName === nameSpan.textContent) { cancelRename(); return; }
+        try {
+          const res = await api.patch(`/api/me/commanders/${commanderId}`, { displayName: newName });
+          nameSpan.textContent = res.displayName;
+          cancelRename();
+          showToast("Renamed to " + res.displayName);
+        } catch (err) {
+          cancelRename();
+          showToast((err.body && err.body.reason === "taken") ? "Name already taken" : (err.body && err.body.reason === "format") ? "3-32 chars, letters/digits/_/-" : t("common.error"));
+        }
+      });
     }
 
     // Copy bootstrap URL
