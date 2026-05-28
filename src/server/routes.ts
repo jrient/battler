@@ -940,6 +940,21 @@ async function runChallenge(c: Context, cmd: CommanderRecord, body: unknown): Pr
     opponentCode = opp.code;
     opponentMeta = { id: opp.id, submittedBy: opp.submittedBy || opp.displayName, version: opp.codeVersion };
     opponentScore = opp.rank.score;
+    // Only allow challenging commanders within ±10% of your score
+    const myScore = cmd.rank.score;
+    if (myScore > 0 && opponentScore > 0) {
+      const lower = Math.round(myScore * 0.9);
+      const upper = Math.round(myScore * 1.1);
+      if (opponentScore < lower || opponentScore > upper) {
+        return c.json({
+          error: "score_mismatch",
+          message: `Opponent score ${opponentScore} is outside your challenge range (${lower}–${upper})`,
+          myScore,
+          opponentScore,
+          range: { lower, upper },
+        }, 400);
+      }
+    }
   }
 
   let agentA, agentB;

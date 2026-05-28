@@ -68,6 +68,7 @@
   "arena.opp_random_btn": "随机对手",
   "arena.opp_not_found": "找不到这个名字的指挥官",
   "arena.opp_no_commanders": "（暂无其他指挥官可对战）",
+  "arena.opp_range_hint": "分数范围: {lo}–{hi}",
   "arena.fight_btn": "开战",
   "arena.fight_btn_running": "对战中…",
   "arena.cooldown": "冷却中：{seconds}s",

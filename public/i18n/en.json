@@ -68,6 +68,7 @@
   "arena.opp_random_btn": "Random opponent",
   "arena.opp_not_found": "No commander with that name",
   "arena.opp_no_commanders": "(no other commanders yet)",
+  "arena.opp_range_hint": "Score range: {lo}–{hi}",
   "arena.fight_btn": "Fight",
   "arena.fight_btn_running": "Fighting…",
   "arena.cooldown": "Cooldown: {seconds}s",

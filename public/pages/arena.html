@@ -278,12 +278,14 @@
 
         function resolveOpponent() {
           const q = oppInput.value.trim().toLowerCase();
+          const myScore = getSelectedScore();
+          const eligible = myScore > 0 ? otherCmds.filter(c => c.rank.score >= myScore * 0.9 && c.rank.score <= myScore * 1.1) : otherCmds;
           if (!q) {
             state.oppId = null;
             oppMeta.classList.remove("err");
-            oppMeta.textContent = noOpponents ? t("arena.opp_no_commanders") : "";
+            oppMeta.textContent = noOpponents ? t("arena.opp_no_commanders") : (myScore > 0 ? t("arena.opp_range_hint", { lo: Math.round(myScore * 0.9), hi: Math.round(myScore * 1.1) }) : "");
           } else {
-            const match = otherCmds.find((c) => c.displayName.toLowerCase() === q);
+            const match = eligible.find((c) => c.displayName.toLowerCase() === q);
             if (match) {
               state.oppId = match.commanderId;
               oppMeta.classList.remove("err");
@@ -295,6 +297,11 @@
             }
           }
           updateFightBtn();
+        }
+
+        function getSelectedScore() {
+          const sel = state.myCommanders.find(c => c.commanderId === mySelect.value);
+          return sel ? sel.rank.score : 0;
         }
 
         function updateFightBtn() {
@@ -320,11 +327,18 @@
           cooldownTimer = setInterval(tick, 1000);
         }
 
-        mySelect.addEventListener("change", updateFightBtn);
+        mySelect.addEventListener("change", () => {
+          state.oppId = null;
+          oppInput.value = "";
+          resolveOpponent();
+          updateFightBtn();
+        });
         oppInput.addEventListener("input", resolveOpponent);
         randomBtn.addEventListener("click", () => {
-          if (noOpponents) return;
-          const pick = otherCmds[Math.floor(Math.random() * otherCmds.length)];
+          const myScore = getSelectedScore();
+          const eligible = myScore > 0 ? otherCmds.filter(c => c.rank.score >= myScore * 0.9 && c.rank.score <= myScore * 1.1) : otherCmds;
+          if (eligible.length === 0) return;
+          const pick = eligible[Math.floor(Math.random() * eligible.length)];
           oppInput.value = pick.displayName;
           resolveOpponent();
         });
@@ -351,6 +365,8 @@
             if (err.status === 429 && err.body && err.body.nextChallengeAt) {
               startCooldown(new Date(err.body.nextChallengeAt).getTime());
               errorLine.textContent = "";
+            } else if (err.status === 400 && err.body && err.body.error === "score_mismatch") {
+              errorLine.textContent = err.body.message || t("arena.opp_not_found");
             } else {
               errorLine.textContent = `${t("common.error")}: ${escapeHtml((err.body && err.body.message) || err.message)}`;
             }
