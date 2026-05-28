@@ -9,6 +9,8 @@ services:
     volumes:
       # 持久化 store.json(commanders / matches / rate-limit 状态)
       - ./data:/app/data
+    env_file:
+      - .env
     environment:
       - PORT=8787
       - NODE_ENV=production
