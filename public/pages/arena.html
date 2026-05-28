@@ -41,7 +41,35 @@
       font-size: 14px;
       box-sizing: border-box;
     }
+    .opp-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+    .opp-input-row { display: flex; gap: 8px; }
+    .opp-input-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .opp-input-row input:focus { outline: none; border-color: var(--gold); }
+    .opp-input-row input:disabled { opacity: 0.5; }
+    .btn-random {
+      flex: 0 0 auto;
+      padding: 0 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-random:hover:not(:disabled) { border-color: var(--gold); }
+    .btn-random:disabled { opacity: 0.5; cursor: not-allowed; }
     .picker-meta { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 18px; }
+    .picker-meta.err { color: #f66; }
     .vs-divider { display: flex; align-items: center; justify-content: center; color: var(--gold); font-weight: 700; font-size: 20px; }
 
     .fight-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 20px 0; }
@@ -204,17 +232,9 @@
           `<option value="${escapeHtml(c.commanderId)}">${escapeHtml(c.displayName)} · ${escapeHtml(c.rank.tier)} ${escapeHtml(c.rank.division)} · ${c.rank.score}</option>`
         ).join("");
 
-        const botOptions = state.bots.map((b) =>
-          `<option value="bot:${escapeHtml(b.id)}">🤖 ${escapeHtml(b.displayName)}</option>`
-        ).join("");
-
         const myIdSet = new Set(state.myCommanders.map((c) => c.commanderId));
         const otherCmds = state.allCommanders.filter((c) => !myIdSet.has(c.commanderId));
-        const cmdOptions = otherCmds.length === 0
-          ? `<option disabled>${t("arena.opp_no_commanders")}</option>`
-          : otherCmds.map((c) =>
-              `<option value="${escapeHtml(c.commanderId)}">👥 ${escapeHtml(c.displayName)} · ${escapeHtml(c.rank.tier)} ${escapeHtml(c.rank.division)} · ${c.rank.score}</option>`
-            ).join("");
+        const noOpponents = otherCmds.length === 0;
 
         root.innerHTML = `
           <div class="picker-row">
@@ -229,12 +249,13 @@
             <div class="vs-divider">VS</div>
             <div class="picker-col">
               <div class="picker-label">${t("arena.opp_side")}</div>
-              <select id="oppSelect">
-                <option value="" disabled selected>${t("arena.opp_picker_placeholder")}</option>
-                <optgroup label="${t("arena.opp_group_bots")}">${botOptions}</optgroup>
-                <optgroup label="${t("arena.opp_group_commanders")}">${cmdOptions}</optgroup>
-              </select>
-              <div class="picker-meta" id="oppMeta"></div>
+              <div class="opp-hint">${t("arena.opp_paste_hint")}</div>
+              <div class="opp-input-row">
+                <input type="text" id="oppInput" autocomplete="off" spellcheck="false"
+                  placeholder="${t("arena.opp_picker_placeholder")}" ${noOpponents ? "disabled" : ""}>
+                <button type="button" class="btn-random" id="randomBtn" title="${t("arena.opp_random_btn")}" ${noOpponents ? "disabled" : ""}>🎲</button>
+              </div>
+              <div class="picker-meta" id="oppMeta">${noOpponents ? t("arena.opp_no_commanders") : ""}</div>
             </div>
           </div>
           <div class="fight-row">
@@ -245,15 +266,39 @@
           <div id="resultPanel"></div>`;
 
         const mySelect = document.getElementById("mySelect");
-        const oppSelect = document.getElementById("oppSelect");
+        const oppInput = document.getElementById("oppInput");
+        const randomBtn = document.getElementById("randomBtn");
+        const oppMeta = document.getElementById("oppMeta");
         const fightBtn = document.getElementById("fightBtn");
         const errorLine = document.getElementById("errorLine");
         const cooldownText = document.getElementById("cooldownText");
 
         let cooldownTimer = null;
+        state.oppId = null;
+
+        function resolveOpponent() {
+          const q = oppInput.value.trim().toLowerCase();
+          if (!q) {
+            state.oppId = null;
+            oppMeta.classList.remove("err");
+            oppMeta.textContent = noOpponents ? t("arena.opp_no_commanders") : "";
+          } else {
+            const match = otherCmds.find((c) => c.displayName.toLowerCase() === q);
+            if (match) {
+              state.oppId = match.commanderId;
+              oppMeta.classList.remove("err");
+              oppMeta.innerHTML = `${escapeHtml(match.rank.tier)} ${escapeHtml(match.rank.division)} · ${t("arena.score_label", { score: match.rank.score })}`;
+            } else {
+              state.oppId = null;
+              oppMeta.classList.add("err");
+              oppMeta.textContent = t("arena.opp_not_found");
+            }
+          }
+          updateFightBtn();
+        }
 
         function updateFightBtn() {
-          const ready = mySelect.value && oppSelect.value && !state.running && Date.now() >= state.nextChallengeAt;
+          const ready = mySelect.value && state.oppId && !state.running && Date.now() >= state.nextChallengeAt;
           fightBtn.disabled = !ready;
         }
 
@@ -276,10 +321,16 @@
         }
 
         mySelect.addEventListener("change", updateFightBtn);
-        oppSelect.addEventListener("change", updateFightBtn);
+        oppInput.addEventListener("input", resolveOpponent);
+        randomBtn.addEventListener("click", () => {
+          if (noOpponents) return;
+          const pick = otherCmds[Math.floor(Math.random() * otherCmds.length)];
+          oppInput.value = pick.displayName;
+          resolveOpponent();
+        });
 
         fightBtn.addEventListener("click", async () => {
-          if (!mySelect.value || !oppSelect.value) {
+          if (!mySelect.value || !state.oppId) {
             errorLine.textContent = t("arena.error.pick_both");
             return;
           }
@@ -290,9 +341,9 @@
           try {
             const res = await api.post(
               `/api/me/commanders/${encodeURIComponent(mySelect.value)}/challenge`,
-              { opponentId: oppSelect.value },
+              { opponentId: state.oppId },
             );
-            renderResult(res, state, mySelect.value, oppSelect.value);
+            renderResult(res, state, mySelect.value, state.oppId);
             startCooldown(new Date(res.nextChallengeAt).getTime());
             // Reload commanders to reflect new ranks
             await reloadCommanderRanks(state);
@@ -313,16 +364,13 @@
 
       function renderResult(res, state, myCmdId, oppId) {
         const myCmd = state.myCommanders.find((c) => c.commanderId === myCmdId);
-        const oppLabel = oppId.startsWith("bot:")
-          ? "🤖 " + (state.bots.find((b) => "bot:" + b.id === oppId)?.displayName || oppId)
-          : "👥 " + (state.allCommanders.find((c) => c.commanderId === oppId)?.displayName || oppId);
+        const oppLabel = "👥 " + (state.allCommanders.find((c) => c.commanderId === oppId)?.displayName || oppId);
 
         const placementNote = res.myRank.placementMatches < 5
           ? `<span class="placement-note">${t("arena.placement_left", { n: res.myRank.placementMatches })}</span>`
           : "";
 
-        const oppBlock = res.opponentRank
-          ? `
+        const oppBlock = `
             <div class="rank-cell">
               <div class="label">${t("arena.opp_side")}</div>
               <div class="who">${escapeHtml(oppLabel)}</div>
@@ -330,14 +378,6 @@
                 ${tierBadge(res.opponentRank)}
                 <span class="score">${t("arena.score_label", { score: res.opponentRank.score })}</span>
                 ${fmtDelta(res.opponentRank.delta)}
-              </div>
-            </div>`
-          : `
-            <div class="rank-cell">
-              <div class="label">${t("arena.opp_side")}</div>
-              <div class="who">${escapeHtml(oppLabel)}</div>
-              <div class="stats">
-                <span class="placement-note">Bot · fixed rating</span>
               </div>
             </div>`;
 
@@ -383,12 +423,11 @@
         try { who = await api.get("/api/me/whoami"); } catch { who = { signedIn: false }; }
         if (!who.signedIn) { renderSignedOut(); return; }
 
-        let meData, allCmds, bots;
+        let meData, allCmds;
         try {
-          [meData, allCmds, bots] = await Promise.all([
+          [meData, allCmds] = await Promise.all([
             api.get("/api/me"),
             api.get("/api/commanders"),
-            api.get("/api/opponents"),
           ]);
         } catch (err) {
           root.innerHTML = `<div class="blocker"><p style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</p></div>`;
@@ -401,7 +440,6 @@
         renderPickers({
           myCommanders,
           allCommanders: allCmds.commanders || [],
-          bots: bots || [],
           running: false,
           nextChallengeAt: 0,
         });
