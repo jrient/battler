@@ -2,9 +2,9 @@
 // 91.2% winrate (34 games). Counters red-charger by focusing mage/priest first.
 
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
-const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
+const MOVE = { knight: 2, spear: 3, archer: 2, mage: 1, priest: 1 };
 const PRIORITY = { priest: 1, mage: 2, archer: 3, spear: 4, knight: 5 };
-const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
+const COST = { knight: 5, spear: 3, archer: 3, mage: 4, priest: 4 };
 
 function manhattan(a, b) {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);

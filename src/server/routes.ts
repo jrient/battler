@@ -380,8 +380,8 @@ const DEMO_CODE = `// AgentClash demo strategy — buys an army with money, then
 // Turn 1 you start with no units: spend ctx.myMoney to buy, then operate
 // whatever is on the board with ctx.myAP.
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
-const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
-const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
+const MOVE = { knight: 2, spear: 3, archer: 2, mage: 1, priest: 1 };
+const COST = { knight: 5, spear: 3, archer: 3, mage: 4, priest: 4 };
 const THREAT = { mage: 10, priest: 8, archer: 7, spear: 4, knight: 2 };
 // Buy priority — cycles through this list while you can still afford something.
 const BUY_ORDER = ["spear", "archer", "knight", "mage", "priest"];

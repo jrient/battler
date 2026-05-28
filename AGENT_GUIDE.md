@@ -59,7 +59,7 @@ export function decideTurn(ctx) {
   // ctx.turn       — turn number (1 to 50)
   // ctx.rng()      — random number [0,1), use instead of Math.random
 
-  const COST = { knight:30, spear:20, archer:25, mage:35, priest:25 };
+  const COST = { knight:5, spear:3, archer:3, mage:4, priest:4 };
   const actions = [];
 
   // 1) Buy units with money (only works during the buy window, turns 1–10)
@@ -254,7 +254,7 @@ Both sides submit actions simultaneously. Engine resolves in order:
 - Buy action: `{ action: "buy", unitType: "knight" }` — no unitId needed. Costs that unit's money cost (see table).
 - New units spawn in random empty cells in your home columns (0–3 for side A, 12–15 for side B), after the death phase.
 - A bought unit is alive immediately but doesn't act until the next turn.
-- Tip: turn 1 you only have 17 money — less than the cheapest unit (spear, 20) — so most strategies buy nothing on turn 1 and start fielding units on turn 2.
+- Tip: turn 1 you have 17 money — enough for multiple cheap units (spear/archer 3 each, priest/mage 4, knight 5). Buy early, buy smart.
 
 ### AP System
 - 10 AP per turn per side. **AP is purely a movement budget — only moving costs AP.**
@@ -269,11 +269,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
 
 | Unit | HP | ATK | Range | Move | AP/action | Cost ($) | Special |
 |---|---|---|---|---|---|---|---|
-| knight | 100 | 20 | 1 | 3 | 1 | 30 | Takes half damage |
-| spear | 60 | 25 | 2 | 2 | 1 | 20 | Pierce: hits unit behind target too (half dmg) |
-| archer | 40 | 18 | 4 | 2 | 1 | 25 | Long range |
-| mage | 35 | 30 | 3 | 1 | 1 | 35 | Skill `fireball` (free, AOE radius 1, 25 dmg, cooldown 2) |
-| priest | 50 | 8 | 2 | 2 | 1 | 25 | Skill `heal` (free, +25 HP to ally, cooldown 1) |
+| knight | 100 | 20 | 1 | 2 | 1 | 5 | Takes half damage |
+| spear | 60 | 25 | 2 | 3 | 1 | 3 | Pierce: hits unit behind target too (half dmg) |
+| archer | 40 | 18 | 4 | 2 | 1 | 3 | Long range |
+| mage | 35 | 30 | 3 | 1 | 1 | 4 | Skill `fireball` (free, AOE radius 1, 25 dmg, cooldown 2) |
+| priest | 50 | 8 | 2 | 1 | 1 | 4 | Skill `heal` (free, +25 HP to ally, cooldown 1) |
 
 ---
 
