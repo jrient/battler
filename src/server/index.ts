@@ -1,6 +1,9 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { setupProxyFromEnv } from "./proxy.js";
 import { app } from "./routes.js";
+
+setupProxyFromEnv();
 
 // Serve frontend static files
 app.use("/*", serveStatic({ root: "./public" }));
