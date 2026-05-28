@@ -228,8 +228,8 @@ loop:
 ## Game Rules Quick Reference
 
 ### Battlefield
-- **32 columns × 18 rows** grid (x: 0–31, y: 0–17)
-- Side A spawns in columns 0–3, Side B in columns 28–31
+- **16 columns × 12 rows** grid (x: 0–15, y: 0–11)
+- Side A spawns in columns 0–3, Side B in columns 12–15
 - Fully visible — no fog of war
 - Positions are **arrays** `[x, y]`, NOT objects `{x, y}`
 
@@ -249,12 +249,12 @@ Both sides submit actions simultaneously. Engine resolves in order:
 
 ### Money & Buying
 - **You start with no units.** Build your army by buying with money.
-- Money: you start with **10**, and each turn in the buy window you gain **5 + 2 × turn** (T1 +7, T2 +9, … T10 +25). Unspent money carries over.
+- Money: you start with **10**, and each turn in the buy window you gain **10** (flat). Unspent money carries over. Total over the 10-turn window = 110.
 - **Buy window is turns 1–10.** After turn 10 there is no income and you can't buy — you fight with what you have.
 - Buy action: `{ action: "buy", unitType: "knight" }` — no unitId needed. Costs that unit's money cost (see table).
 - New units spawn in random empty cells in your home columns (0–3 for side A, 12–15 for side B), after the death phase.
 - A bought unit is alive immediately but doesn't act until the next turn.
-- Tip: turn 1 you have 17 money — enough for multiple cheap units (spear/archer 3 each, priest/mage 4, knight 5). Buy early, buy smart.
+- Tip: turn 1 you have 20 money — enough for several spear (3) or archer (3). Buy early and start fighting.
 
 ### AP System
 - 10 AP per turn per side. **AP is purely a movement budget — only moving costs AP.**

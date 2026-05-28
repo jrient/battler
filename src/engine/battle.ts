@@ -6,7 +6,6 @@ import {
   BUY_TURNS,
   AP_PER_TURN,
   STARTING_MONEY,
-  MONEY_INCOME_BASE,
   MONEY_INCOME_PER_TURN,
   FIREBALL_DAMAGE,
   FIREBALL_AOE_RADIUS,
@@ -88,9 +87,8 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     const aliveB = units.filter((u) => u.side === "B" && u.hp > 0);
 
     if (turnIdx <= BUY_TURNS) {
-      const income = MONEY_INCOME_BASE + MONEY_INCOME_PER_TURN * turnIdx;
-      moneyA += income;
-      moneyB += income;
+      moneyA += MONEY_INCOME_PER_TURN;
+      moneyB += MONEY_INCOME_PER_TURN;
     }
     const moneyAvailA = turnIdx <= BUY_TURNS ? moneyA : 0;
     const moneyAvailB = turnIdx <= BUY_TURNS ? moneyB : 0;
@@ -526,9 +524,9 @@ function applyDamage(target: Unit, rawDmg: number): number {
 }
 
 function computeRemainingStrength(units: Unit[], side: Side): number {
-  return units
+    return units
     .filter((u) => u.side === side && u.hp > 0)
-    .reduce((sum, u) => sum + UNITS[u.type].cost + Math.max(0, u.hp), 0);
+    .reduce((sum, u) => sum + UNITS[u.type].cost, 0);
 }
 
 function buildCtx(
@@ -583,7 +581,7 @@ function toPublic(u: Unit): PublicUnit {
 }
 
 function snapshotUnits(units: Unit[]): UnitSnapshot[] {
-  return units.map((u) => ({
+    return units.map((u) => ({
     id: u.id,
     type: u.type,
     side: u.side,
