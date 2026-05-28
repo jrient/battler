@@ -400,16 +400,16 @@ body {
 
 /* Sidebar */
 #sidebar {
-  flex: 1;
-  min-width: 200px;
+  width: 220px;
+  flex-shrink: 0;
   background: var(--surface);
   border-radius: 12px;
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   max-height: calc(var(--cell-size) * var(--board-rows) + 24px);
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #turn-info {
@@ -507,8 +507,20 @@ body {
 .roster-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 3px;
+  align-content: flex-start;
+  max-height: 42%;
+  overflow-y: auto;
+  padding: 4px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.roster-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+  font-weight: 600;
 }
 
 .roster-unit {

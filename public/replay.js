@@ -507,6 +507,7 @@ class ReplayApp {
     rosterA.innerHTML = "";
     rosterB.innerHTML = "";
 
+    let aliveA = 0, aliveB = 0;
     for (const u of snapshot) {
       const el = document.createElement("div");
       el.className = `roster-unit side-${u.side.toLowerCase()}${u.hp <= 0 ? " dead" : ""}`;
@@ -515,9 +516,11 @@ class ReplayApp {
         const current = this.findUnitInSnapshot(u.id);
         if (current) this.selectUnit(current);
       });
-      if (u.side === "A") rosterA.appendChild(el);
-      else rosterB.appendChild(el);
+      if (u.side === "A") { rosterA.appendChild(el); if (u.hp > 0) aliveA++; }
+      else { rosterB.appendChild(el); if (u.hp > 0) aliveB++; }
     }
+    document.getElementById("roster-label-a").textContent = `⚔ A · ${aliveA}/${rosterA.children.length}`;
+    document.getElementById("roster-label-b").textContent = `🛡 B · ${aliveB}/${rosterB.children.length}`;
   }
 
   updateUI() {
