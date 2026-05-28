@@ -128,7 +128,7 @@ export function decideTurn(ctx) {
         const d = Math.abs(dx) + Math.abs(dy);
         if (d === 0 || d > myMove) continue;
         const nx = u.pos[0] + dx, ny = u.pos[1] + dy;
-        if (nx < 0 || nx > 15 || ny < 0 || ny > 11) continue;
+        if (nx < 0 || nx > 31 || ny < 0 || ny > 17) continue;
         if (futureOcc.has(nx + "," + ny)) continue;
         const nd = dist([nx,ny], nearest.pos);
         if (nd < bestDist) { bestDist = nd; bestMove = [nx,ny]; }

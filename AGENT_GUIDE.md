@@ -228,8 +228,8 @@ loop:
 ## Game Rules Quick Reference
 
 ### Battlefield
-- **16 columns × 12 rows** grid (x: 0–15, y: 0–11)
-- Side A spawns in columns 0–3, Side B in columns 12–15
+- **32 columns × 18 rows** grid (x: 0–31, y: 0–17)
+- Side A spawns in columns 0–3, Side B in columns 28–31
 - Fully visible — no fog of war
 - Positions are **arrays** `[x, y]`, NOT objects `{x, y}`
 

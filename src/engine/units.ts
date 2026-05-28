@@ -1,7 +1,7 @@
 import type { UnitDef, UnitType } from "./types.js";
 
-export const BOARD_WIDTH = 16;
-export const BOARD_HEIGHT = 12;
+export const BOARD_WIDTH = 32;
+export const BOARD_HEIGHT = 18;
 export const MAX_TURNS = 50;
 // Turns 1..BUY_TURNS you earn money income and may buy units; after that the
 // roster is locked and you only fight with what you have.
