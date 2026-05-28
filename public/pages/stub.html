@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .stub-wrap {
+      text-align: center;
+      padding: 80px 20px;
+    }
+    .stub-wrap h1 {
+      font-size: 36px;
+      color: var(--gold);
+      margin-bottom: 12px;
+    }
+    .stub-wrap .coming {
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .stub-wrap .phase {
+      font-size: 13px;
+      color: var(--text-dim);
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main>
+    <div class="stub-wrap">
+      <h1 id="stub-title">…</h1>
+      <p class="coming" id="stub-coming">…</p>
+      <p class="phase" id="stub-phase"></p>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+      const m = location.pathname.match(/^\/(zh|en)\/([a-z]+)/);
+      const section = m ? m[2] : "home";
+      const phaseMap = { army: "P2", leaderboard: "P2", matches: "P2", about: "P2", me: "P3", arena: "P4" };
+      document.getElementById("stub-title").textContent = t(`nav.${section}`);
+      document.getElementById("stub-coming").textContent = t("stub.coming_soon");
+      const phase = phaseMap[section];
+      if (phase) document.getElementById("stub-phase").textContent = t("stub.phase_tag", { phase });
+    })();
+  </script>
+</body>
+</html>

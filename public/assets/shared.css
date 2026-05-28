@@ -1,0 +1,304 @@
+/* AgentClash shared styles — color tokens + nav/footer/cards/buttons */
+
+:root {
+  --blue: #4A7FB5;
+  --blue-light: #6A9FD5;
+  --red: #B54A4A;
+  --red-light: #D56A6A;
+  --green-light: #6ABF6A;
+  --green-dark: #4A8F4A;
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --text: #e0e0e0;
+  --text-dim: #888;
+  --gold: #ffd700;
+  --hp-green: #4CAF50;
+  --hp-yellow: #FFC107;
+  --hp-red: #F44336;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--blue-light); text-decoration: none; }
+a:hover { color: var(--gold); }
+
+.hidden { display: none !important; }
+
+/* ===== Top Nav ===== */
+#top-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--surface2);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+#top-nav .brand {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(255,215,0,0.3);
+  white-space: nowrap;
+}
+
+#top-nav .brand a { color: var(--gold); }
+#top-nav .brand a:hover { color: var(--gold); }
+
+#top-nav .nav-links {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+#top-nav .nav-links a {
+  color: var(--text);
+  font-size: 14px;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+#top-nav .nav-links a:hover { color: var(--gold); }
+#top-nav .nav-links a.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+#top-nav .nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#top-nav .lang-toggle {
+  background: transparent;
+  border: 1px solid var(--surface2);
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+
+#top-nav .lang-toggle:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+#top-nav .login-btn {
+  display: inline-block;
+  background: var(--surface2);
+  color: var(--text);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+#top-nav .login-btn:hover { background: var(--blue); }
+
+#top-nav .user-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  cursor: pointer;
+}
+
+#top-nav .user-menu .user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border, var(--surface2));
+}
+
+#top-nav .user-menu .user-name {
+  font-size: 13px;
+  color: var(--text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#top-nav .user-menu .user-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border, var(--surface2));
+  border-radius: 8px;
+  min-width: 160px;
+  padding: 6px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+
+#top-nav .user-menu:hover .user-dropdown { display: block; }
+
+#top-nav .user-menu .user-dropdown a {
+  display: block;
+  padding: 8px 16px;
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+
+#top-nav .user-menu .user-dropdown a:hover { background: var(--bg); }
+
+#top-nav .user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* ===== Main Layout Container ===== */
+main {
+  flex: 1;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* ===== Cards ===== */
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.card-title {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.btn:hover { background: var(--blue); }
+
+.btn-primary {
+  background: var(--blue);
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--blue-light); }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--surface2);
+}
+.btn-ghost:hover { background: var(--surface2); }
+
+/* ===== Hero ===== */
+.hero {
+  text-align: center;
+  padding: 60px 20px 48px;
+}
+
+.hero h1 {
+  font-size: 48px;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(255,215,0,0.3);
+  margin-bottom: 16px;
+}
+
+.hero p.tagline {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 640px;
+  margin: 0 auto 32px;
+  line-height: 1.5;
+}
+
+.hero .cta-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ===== Grid layouts ===== */
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* ===== Lists / table rows ===== */
+.row-list { display: flex; flex-direction: column; gap: 6px; }
+.row-list .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.row-list .row:hover { background: rgba(255,255,255,0.05); }
+.row-list .row .grow { flex: 1; }
+.row-list .row .muted { color: var(--text-dim); }
+
+/* ===== Footer ===== */
+#site-footer {
+  border-top: 1px solid var(--surface2);
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+#site-footer .links {
+  display: inline-flex;
+  gap: 16px;
+}
+
+/* ===== Loading / Error ===== */
+.state-loading,
+.state-error,
+.state-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.state-error { color: var(--hp-red); }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }

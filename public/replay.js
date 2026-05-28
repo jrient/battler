@@ -14,9 +14,9 @@ const UNIT_STATS = {
   priest: { hp: 50, atk: 8, range: 2, move: 2, special: "heal" },
 };
 
-const PHASE_NAMES = {
-  defend: "防御阶段", move: "移动阶段", attack: "攻击阶段", skill: "技能阶段", death: "阵亡结算", recruit: "招募阶段"
-};
+function phaseLabel(phase) {
+  return window.t ? t(`phase.${phase}`) : phase;
+}
 
 const PROJECTILE_TYPES = {
   knight: { emoji: "⚔️", speed: 300, trail: "#ffffff" },
@@ -57,10 +57,10 @@ class ReplayApp {
       this.speed = parseFloat(e.target.value);
     });
 
-    const params = new URLSearchParams(window.location.search);
-    const matchId = params.get("match");
-    if (matchId) {
-      document.getElementById("matchIdInput").value = matchId;
+    // matchId comes from the URL path /:lang/replay/:id
+    const pathMatch = window.location.pathname.match(/^\/(zh|en)\/replay\/([\w-]+)$/);
+    if (pathMatch) {
+      document.getElementById("matchIdInput").value = pathMatch[2];
       this.loadMatch();
     }
 
@@ -163,6 +163,7 @@ class ReplayApp {
   }
 
   async loadMatch() {
+    await window.i18nReady;
     const matchId = document.getElementById("matchIdInput").value.trim();
     if (!matchId) return;
 
@@ -178,6 +179,13 @@ class ReplayApp {
       this.data = await res.json();
       this.buildEventsByTurn();
 
+      // Canonicalize URL: /:lang/replay/:id
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const canonical = `/${lang}/replay/${matchId}`;
+      if (window.location.pathname !== canonical) {
+        history.replaceState(null, "", canonical);
+      }
+
       document.getElementById("loading").classList.add("hidden");
       document.getElementById("replay").classList.remove("hidden");
       document.getElementById("events-panel").classList.remove("hidden");
@@ -192,7 +200,7 @@ class ReplayApp {
     } catch (err) {
       document.getElementById("loading").classList.add("hidden");
       document.getElementById("error").classList.remove("hidden");
-      document.getElementById("error").textContent = `加载失败: ${err.message}`;
+      document.getElementById("error").textContent = `${t("common.error")}: ${err.message}`;
     }
   }
 
@@ -200,20 +208,20 @@ class ReplayApp {
     const d = this.data;
     const pA = d.participantA;
     const pB = d.participantB;
-    document.getElementById("sideA-name").textContent = pA.submittedBy || "蓝方";
-    document.getElementById("sideB-name").textContent = pB.submittedBy || "红方";
+    document.getElementById("sideA-name").textContent = pA.submittedBy || t("replay.side_a.default");
+    document.getElementById("sideB-name").textContent = pB.submittedBy || t("replay.side_b.default");
 
     const summary = document.getElementById("summary-content");
     const result = d.summary;
     const resultBadge = result.myUnitsRemaining > result.enemyUnitsRemaining ? "win" :
       result.myUnitsRemaining < result.enemyUnitsRemaining ? "loss" : "draw";
-    const resultText = resultBadge === "win" ? "蓝方胜" : resultBadge === "loss" ? "红方胜" : "平局";
+    const resultText = t(`replay.summary.result_${resultBadge}`);
 
     summary.innerHTML = `
       <div><span class="result-badge ${resultBadge}">${resultText}</span></div>
-      <div>总回合: ${result.totalTurns}</div>
-      <div>蓝方剩余: ${result.myUnitsRemaining} | 红方剩余: ${result.enemyUnitsRemaining}</div>
-      <div>决定性回合: T${result.decisiveTurn}</div>
+      <div>${t("replay.summary.total_turns")}: ${result.totalTurns}</div>
+      <div>${t("replay.summary.remaining", { a: result.myUnitsRemaining, b: result.enemyUnitsRemaining })}</div>
+      <div>${t("replay.summary.decisive", { turn: result.decisiveTurn })}</div>
     `;
 
     const slider = document.getElementById("turnSlider");
@@ -515,10 +523,10 @@ class ReplayApp {
   updateUI() {
     const ts = this.data?.turnSnapshots;
     const total = ts?.length || 0;
-    document.getElementById("turn-label").textContent = `回合 ${this.turnIndex + 1} / ${total}`;
+    document.getElementById("turn-label").textContent = t("replay.turn.label", { current: this.turnIndex + 1, total });
 
-    const phaseName = this.phaseIndex < 0 ? "初始阵型" :
-      (PHASE_NAMES[ts[this.turnIndex]?.phases[this.phaseIndex]?.phase] || "—");
+    const phaseKey = ts?.[this.turnIndex]?.phases[this.phaseIndex]?.phase;
+    const phaseName = this.phaseIndex < 0 ? t("phase.initial") : (phaseKey ? phaseLabel(phaseKey) : "—");
     document.getElementById("phase-label").textContent = phaseName;
 
     document.getElementById("turnSlider").value = this.turnIndex;
