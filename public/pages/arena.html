@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .arena-wrap { max-width: 880px; margin: 0 auto; padding: 24px 20px; }
+    .arena-head h1 { font-size: 24px; color: var(--text); margin: 0 0 4px; }
+    .arena-head .subtitle { color: var(--text-dim); font-size: 13px; margin: 0 0 20px; }
+
+    .picker-row {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr;
+      gap: 12px;
+      align-items: stretch;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 640px) {
+      .picker-row { grid-template-columns: 1fr; }
+      .picker-row .vs-divider { display: none; }
+    }
+    .picker-col {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .picker-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .picker-col select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .picker-meta { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 18px; }
+    .vs-divider { display: flex; align-items: center; justify-content: center; color: var(--gold); font-weight: 700; font-size: 20px; }
+
+    .fight-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 20px 0; }
+    .btn-fight {
+      padding: 12px 36px;
+      font-size: 16px;
+      font-weight: 700;
+      background: var(--gold);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: opacity 0.15s;
+    }
+    .btn-fight:hover:not(:disabled) { opacity: 0.9; }
+    .btn-fight:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+    .cooldown-text { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-top: 16px;
+    }
+    .result-banner {
+      text-align: center;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 12px 0;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .result-banner.win { background: rgba(106, 191, 106, 0.15); color: var(--green-light); }
+    .result-banner.loss { background: rgba(213, 106, 106, 0.15); color: var(--red-light); }
+    .result-banner.draw { background: rgba(180, 180, 180, 0.15); color: var(--text-dim); }
+
+    .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    @media (max-width: 540px) { .rank-grid { grid-template-columns: 1fr; } }
+    .rank-cell {
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .rank-cell .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .rank-cell .who { font-size: 14px; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+    .rank-cell .stats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .rank-cell .score { font-size: 17px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+    .rank-cell .delta { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
+    .rank-cell .delta.up { background: rgba(106,191,106,0.15); color: var(--green-light); }
+    .rank-cell .delta.down { background: rgba(213,106,106,0.15); color: var(--red-light); }
+    .rank-cell .delta.zero { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .rank-cell .placement-note { color: var(--text-dim); font-size: 11px; margin-left: 4px; }
+
+    .tier-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tier-Master { background: #c8a; color: #fff; }
+    .tier-Diamond { background: #a8f; color: #fff; }
+    .tier-Platinum { background: #68c; color: #fff; }
+    .tier-Gold { background: #db0; color: #222; }
+    .tier-Silver { background: #889; color: #fff; }
+    .tier-Bronze { background: #864; color: #fff; }
+
+    .summary-line { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+    .replay-link {
+      display: inline-block;
+      color: var(--gold);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .replay-link:hover { text-decoration: underline; }
+
+    .error-line { color: #f66; font-size: 13px; margin-top: 8px; text-align: center; min-height: 18px; }
+
+    .blocker { text-align: center; padding: 60px 20px; }
+    .blocker h2 { color: var(--gold); margin: 0 0 8px; font-size: 20px; }
+    .blocker p { color: var(--text-dim); margin: 0 0 16px; }
+    .blocker a.btn-link {
+      display: inline-block;
+      padding: 10px 20px;
+      background: var(--gold);
+      color: var(--bg);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="arena-wrap">
+    <div class="arena-head">
+      <h1 data-i18n="arena.title">竞技场</h1>
+      <p class="subtitle" data-i18n="arena.subtitle">…</p>
+    </div>
+
+    <div id="root">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const root = document.getElementById("root");
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      function tierBadge(rank) {
+        if (!rank || !rank.tier) return "";
+        return `<span class="tier-badge tier-${rank.tier}">${t("arena.tier_badge", { tier: rank.tier, div: rank.division || "" })}</span>`;
+      }
+
+      function fmtDelta(n) {
+        if (n > 0) return `<span class="delta up">${t("arena.delta_up", { n })}</span>`;
+        if (n < 0) return `<span class="delta down">${t("arena.delta_down", { n })}</span>`;
+        return `<span class="delta zero">${t("arena.delta_zero")}</span>`;
+      }
+
+      function renderSignedOut() {
+        root.innerHTML = `
+          <div class="blocker">
+            <h2>${t("arena.signed_out.title")}</h2>
+            <p>${t("arena.signed_out.desc")}</p>
+            <a class="btn-link" href="/auth/github">${t("arena.signed_out.btn")}</a>
+          </div>`;
+      }
+
+      function renderNoCommanders() {
+        root.innerHTML = `
+          <div class="blocker">
+            <h2>${t("arena.no_commanders.title")}</h2>
+            <p>${t("arena.no_commanders.desc")}</p>
+            <a class="btn-link" href="/${lang}/me">${t("arena.no_commanders.cta")}</a>
+          </div>`;
+      }
+
+      function renderPickers(state) {
+        const myOptions = state.myCommanders.map((c) =>
+          `<option value="${escapeHtml(c.commanderId)}">${escapeHtml(c.displayName)} · ${escapeHtml(c.rank.tier)} ${escapeHtml(c.rank.division)} · ${c.rank.score}</option>`
+        ).join("");
+
+        const botOptions = state.bots.map((b) =>
+          `<option value="bot:${escapeHtml(b.id)}">🤖 ${escapeHtml(b.displayName)}</option>`
+        ).join("");
+
+        const myIdSet = new Set(state.myCommanders.map((c) => c.commanderId));
+        const otherCmds = state.allCommanders.filter((c) => !myIdSet.has(c.commanderId));
+        const cmdOptions = otherCmds.length === 0
+          ? `<option disabled>${t("arena.opp_no_commanders")}</option>`
+          : otherCmds.map((c) =>
+              `<option value="${escapeHtml(c.commanderId)}">👥 ${escapeHtml(c.displayName)} · ${escapeHtml(c.rank.tier)} ${escapeHtml(c.rank.division)} · ${c.rank.score}</option>`
+            ).join("");
+
+        root.innerHTML = `
+          <div class="picker-row">
+            <div class="picker-col">
+              <div class="picker-label">${t("arena.my_side")}</div>
+              <select id="mySelect">
+                <option value="" disabled selected>${t("arena.my_picker_placeholder")}</option>
+                ${myOptions}
+              </select>
+              <div class="picker-meta" id="myMeta"></div>
+            </div>
+            <div class="vs-divider">VS</div>
+            <div class="picker-col">
+              <div class="picker-label">${t("arena.opp_side")}</div>
+              <select id="oppSelect">
+                <option value="" disabled selected>${t("arena.opp_picker_placeholder")}</option>
+                <optgroup label="${t("arena.opp_group_bots")}">${botOptions}</optgroup>
+                <optgroup label="${t("arena.opp_group_commanders")}">${cmdOptions}</optgroup>
+              </select>
+              <div class="picker-meta" id="oppMeta"></div>
+            </div>
+          </div>
+          <div class="fight-row">
+            <button class="btn-fight" id="fightBtn" disabled>${t("arena.fight_btn")}</button>
+            <span class="cooldown-text" id="cooldownText"></span>
+          </div>
+          <div class="error-line" id="errorLine"></div>
+          <div id="resultPanel"></div>`;
+
+        const mySelect = document.getElementById("mySelect");
+        const oppSelect = document.getElementById("oppSelect");
+        const fightBtn = document.getElementById("fightBtn");
+        const errorLine = document.getElementById("errorLine");
+        const cooldownText = document.getElementById("cooldownText");
+
+        let cooldownTimer = null;
+
+        function updateFightBtn() {
+          const ready = mySelect.value && oppSelect.value && !state.running && Date.now() >= state.nextChallengeAt;
+          fightBtn.disabled = !ready;
+        }
+
+        function startCooldown(ts) {
+          state.nextChallengeAt = ts;
+          if (cooldownTimer) clearInterval(cooldownTimer);
+          function tick() {
+            const remain = Math.max(0, Math.ceil((state.nextChallengeAt - Date.now()) / 1000));
+            if (remain <= 0) {
+              cooldownText.textContent = "";
+              clearInterval(cooldownTimer);
+              cooldownTimer = null;
+            } else {
+              cooldownText.textContent = t("arena.cooldown", { seconds: remain });
+            }
+            updateFightBtn();
+          }
+          tick();
+          cooldownTimer = setInterval(tick, 1000);
+        }
+
+        mySelect.addEventListener("change", updateFightBtn);
+        oppSelect.addEventListener("change", updateFightBtn);
+
+        fightBtn.addEventListener("click", async () => {
+          if (!mySelect.value || !oppSelect.value) {
+            errorLine.textContent = t("arena.error.pick_both");
+            return;
+          }
+          errorLine.textContent = "";
+          state.running = true;
+          fightBtn.disabled = true;
+          fightBtn.textContent = t("arena.fight_btn_running");
+          try {
+            const res = await api.post(
+              `/api/me/commanders/${encodeURIComponent(mySelect.value)}/challenge`,
+              { opponentId: oppSelect.value },
+            );
+            renderResult(res, state, mySelect.value, oppSelect.value);
+            startCooldown(new Date(res.nextChallengeAt).getTime());
+            // Reload commanders to reflect new ranks
+            await reloadCommanderRanks(state);
+          } catch (err) {
+            if (err.status === 429 && err.body && err.body.nextChallengeAt) {
+              startCooldown(new Date(err.body.nextChallengeAt).getTime());
+              errorLine.textContent = "";
+            } else {
+              errorLine.textContent = `${t("common.error")}: ${escapeHtml((err.body && err.body.message) || err.message)}`;
+            }
+          } finally {
+            state.running = false;
+            fightBtn.textContent = t("arena.fight_btn");
+            updateFightBtn();
+          }
+        });
+      }
+
+      function renderResult(res, state, myCmdId, oppId) {
+        const myCmd = state.myCommanders.find((c) => c.commanderId === myCmdId);
+        const oppLabel = oppId.startsWith("bot:")
+          ? "🤖 " + (state.bots.find((b) => "bot:" + b.id === oppId)?.displayName || oppId)
+          : "👥 " + (state.allCommanders.find((c) => c.commanderId === oppId)?.displayName || oppId);
+
+        const placementNote = res.myRank.placementMatches < 5
+          ? `<span class="placement-note">${t("arena.placement_left", { n: res.myRank.placementMatches })}</span>`
+          : "";
+
+        const oppBlock = res.opponentRank
+          ? `
+            <div class="rank-cell">
+              <div class="label">${t("arena.opp_side")}</div>
+              <div class="who">${escapeHtml(oppLabel)}</div>
+              <div class="stats">
+                ${tierBadge(res.opponentRank)}
+                <span class="score">${t("arena.score_label", { score: res.opponentRank.score })}</span>
+                ${fmtDelta(res.opponentRank.delta)}
+              </div>
+            </div>`
+          : `
+            <div class="rank-cell">
+              <div class="label">${t("arena.opp_side")}</div>
+              <div class="who">${escapeHtml(oppLabel)}</div>
+              <div class="stats">
+                <span class="placement-note">Bot · fixed rating</span>
+              </div>
+            </div>`;
+
+        const panel = document.getElementById("resultPanel");
+        const cls = res.result;
+        panel.innerHTML = `
+          <div class="result-card">
+            <div class="result-banner ${cls}">${t("arena.result." + cls)}</div>
+            <div class="rank-grid">
+              <div class="rank-cell">
+                <div class="label">${t("arena.my_side")}</div>
+                <div class="who">${escapeHtml(myCmd ? myCmd.displayName : myCmdId)}</div>
+                <div class="stats">
+                  ${tierBadge(res.myRank)}
+                  <span class="score">${t("arena.score_label", { score: res.myRank.score })}</span>
+                  ${fmtDelta(res.myRank.delta)}
+                  ${placementNote}
+                </div>
+              </div>
+              ${oppBlock}
+            </div>
+            <div class="summary-line">
+              ${t("arena.result.summary_remaining", {
+                a: res.summary.myUnitsRemaining,
+                b: res.summary.enemyUnitsRemaining,
+              })}
+            </div>
+            <a class="replay-link" href="/${lang}/replay/${encodeURIComponent(res.matchId)}">${t("arena.result.replay")}</a>
+          </div>`;
+      }
+
+      async function reloadCommanderRanks(state) {
+        try {
+          const data = await api.get("/api/me");
+          state.myCommanders = (data.commanders || []).filter((c) => (c.codeVersion || 0) > 0);
+          const all = await api.get("/api/commanders");
+          state.allCommanders = all.commanders || [];
+        } catch { /* ignore */ }
+      }
+
+      async function loadAndRender() {
+        let who;
+        try { who = await api.get("/api/me/whoami"); } catch { who = { signedIn: false }; }
+        if (!who.signedIn) { renderSignedOut(); return; }
+
+        let meData, allCmds, bots;
+        try {
+          [meData, allCmds, bots] = await Promise.all([
+            api.get("/api/me"),
+            api.get("/api/commanders"),
+            api.get("/api/opponents"),
+          ]);
+        } catch (err) {
+          root.innerHTML = `<div class="blocker"><p style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</p></div>`;
+          return;
+        }
+
+        const myCommanders = (meData.commanders || []).filter((c) => (c.codeVersion || 0) > 0);
+        if (myCommanders.length === 0) { renderNoCommanders(); return; }
+
+        renderPickers({
+          myCommanders,
+          allCommanders: allCmds.commanders || [],
+          bots: bots || [],
+          running: false,
+          nextChallengeAt: 0,
+        });
+      }
+
+      loadAndRender();
+    })();
+  </script>
+</body>
+</html>

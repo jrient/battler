@@ -48,7 +48,7 @@
       await window.i18nReady;
       const m = location.pathname.match(/^\/(zh|en)\/([a-z]+)/);
       const section = m ? m[2] : "home";
-      const phaseMap = { army: "P2", leaderboard: "P2", about: "P2", arena: "P3" };
+      const phaseMap = { army: "P2", leaderboard: "P2", about: "P2" };
       document.getElementById("stub-title").textContent = t(`nav.${section}`);
       document.getElementById("stub-coming").textContent = t("stub.coming_soon");
       const phase = phaseMap[section];
