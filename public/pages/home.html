@@ -20,8 +20,10 @@
     .lb-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 4px; }
     .lb-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
     .lb-rank { color: var(--gold); font-weight: bold; text-align: center; }
-    .lb-name { color: var(--text); }
+    .lb-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .lb-score { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+    .lb-more { display: block; text-align: center; margin-top: 10px; font-size: 12px; color: var(--gold); text-decoration: none; }
+    .lb-more:hover { text-decoration: underline; }
     .match-row {
       display: grid;
       grid-template-columns: 1fr auto 1fr auto;
@@ -84,11 +86,29 @@
     (async function () {
       await window.i18nReady;
 
-      // ---- Top 10 (leaderboard not yet implemented in P1; show placeholder) ----
-      const top10El = document.getElementById("top10");
-      top10El.classList.remove("state-loading");
-      top10El.innerHTML = `<div class="state-empty" data-i18n="common.empty">${t("common.empty")}</div>
-        <div style="font-size:12px;color:var(--text-dim);margin-top:8px;text-align:center;">Leaderboard API ships in P2.</div>`;
+      // ---- Top 10 ----
+      try {
+        const data = await api.get("/api/commanders");
+        const top = (data.commanders || []).slice(0, 10);
+        const el = document.getElementById("top10");
+        el.classList.remove("state-loading");
+        if (top.length === 0) {
+          el.innerHTML = `<div class="state-empty">${t("common.empty")}</div>`;
+        } else {
+          el.innerHTML = top.map((c, i) => `
+            <div class="lb-row">
+              <span class="lb-rank">${["🥇", "🥈", "🥉"][i] || (i + 1)}</span>
+              <span class="lb-name">${escapeHtml(c.displayName)}</span>
+              <span class="lb-score">${c.rank.score}</span>
+            </div>`).join("")
+            + `<a class="lb-more" href="/${i18n.lang}/leaderboard">${t("home.top10.more")}</a>`;
+        }
+      } catch (err) {
+        const el = document.getElementById("top10");
+        el.classList.remove("state-loading");
+        el.classList.add("state-error");
+        el.textContent = `${t("common.error")}: ${err.message}`;
+      }
 
       // ---- Recent matches ----
       try {
