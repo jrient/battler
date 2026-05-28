@@ -27,6 +27,7 @@
     .vs-cell { color: var(--text-dim); margin: 0 6px; font-size: 11px; }
     .name-a { color: var(--blue-light); }
     .name-b { color: var(--red-light); }
+    .score-num { font-weight: 700; font-variant-numeric: tabular-nums; }
     .result-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; min-width: 56px; text-align: center; }
     .result-badge.win { background: rgba(100,170,255,0.15); color: var(--blue-light); }
     .result-badge.loss { background: rgba(255,100,100,0.15); color: var(--red-light); }
@@ -118,6 +119,8 @@
       function renderRow(m) {
         const a = m.participantA.displayName || m.participantA.submittedBy || "—";
         const b = m.participantB.displayName || m.participantB.submittedBy || "—";
+        const aLeft = m.summary?.myUnitsRemaining ?? "—";
+        const bLeft = m.summary?.enemyUnitsRemaining ?? "—";
         const cls = m.resultA === "win" ? "win" : m.resultA === "loss" ? "loss" : "draw";
         const label = t(`matches.result.${cls}`);
         const typeChip = m.type === "challenge"
@@ -127,9 +130,9 @@
           <tr>
             <td class="time-cell">${escapeHtml(fmtTime(m.createdAt))}</td>
             <td>
-              <span class="name-a">${escapeHtml(a)}</span>
+              <span class="name-a">${escapeHtml(a)} <span class="score-num">(${aLeft})</span></span>
               <span class="vs-cell">VS</span>
-              <span class="name-b">${escapeHtml(b)}</span>
+              <span class="name-b"><span class="score-num">(${bLeft})</span> ${escapeHtml(b)}</span>
               ${typeChip}
             </td>
             <td><span class="result-badge ${cls}">${label}</span></td>
