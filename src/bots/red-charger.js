@@ -1,5 +1,5 @@
-// red-charger: aggressive rush with spear-heavy frontline (cheap, fast, high DPS).
-// Buys a large mobile army and closes distance to engage at full force.
+// red-charger: spear-heavy rush (cheap, move 3). Buys 1 mage + 1 priest
+// then floods spears+archers. Attacks free; moves spear frontline forward.
 
 const COST  = { knight:5, spear:3, archer:3, mage:4, priest:4 };
 const RANGE = { knight:1, spear:2, archer:4, mage:3, priest:2 };
@@ -16,63 +16,63 @@ function stepToward(from, to, max) {
   return [from[0]+dx, from[1]+dy];
 }
 
-function densestCell(units, radius) {
-  let best = null, bestN = 0;
+function clusterCount(units, center, r) {
+  let n = 0;
   for (const u of units) {
-    let n = 0;
-    for (const o of units) {
-      if (Math.max(Math.abs(o.pos[0]-u.pos[0]), Math.abs(o.pos[1]-u.pos[1])) <= radius) n++;
-    }
-    if (n > bestN) { bestN = n; best = u.pos; }
+    if (Math.max(Math.abs(u.pos[0]-center[0]), Math.abs(u.pos[1]-center[1])) <= r) n++;
   }
-  return { pos: best, count: bestN };
+  return n;
 }
 
 export function decideTurn(ctx) {
   const actions = [];
-
-  // ── Buy phase: rush-buy spears then archers ──
   let money = ctx.myMoney || 0;
-  // First spear every turn (cheapest melee, move 3)
+
+  // Count current composition
+  const c = {};
+  for (const u of ctx.myUnits) c[u.type] = (c[u.type]||0) + 1;
+
+  // One mage for fireball (4g), one priest for heal (4g), then spear+archer flood
+  if (!c.mage && money >= COST.mage) { actions.push({ action:"buy", unitType:"mage" }); money -= COST.mage; }
+  if (!c.priest && money >= COST.priest) { actions.push({ action:"buy", unitType:"priest" }); money -= COST.priest; }
   while (money >= COST.spear) { actions.push({ action:"buy", unitType:"spear" }); money -= COST.spear; }
-  // Remaining goes to archers for ranged support
   while (money >= COST.archer) { actions.push({ action:"buy", unitType:"archer" }); money -= COST.archer; }
 
   if (!ctx.enemyUnits.length) return actions;
 
-  // Sort enemies: lowest HP first for focus fire
   const targets = [...ctx.enemyUnits].sort((a,b) => a.hp - b.hp);
-
-  // ── Operate units (attacks free, only moves cost AP) ──
   let ap = ctx.myAP;
 
-  // Mages first: fireball dense clusters
+  // Mage fireball on dense clusters (free action, no AP)
   for (const u of ctx.myUnits) {
-    if (u.type !== "mage" || ap < 1) continue;
-    if ((u.cooldowns.fireball||0) > 0) continue;
-    const cluster = densestCell(ctx.enemyUnits, 1);
-    if (cluster.count >= 3 && cluster.pos && dist(u.pos, cluster.pos) <= RANGE.mage) {
-      actions.push({ unitId:u.id, action:"skill", skill:"fireball", target:cluster.pos });
-      continue;
+    if (u.type !== "mage" || (u.cooldowns.fireball||0) > 0) continue;
+    let best = null, bestN = 0;
+    for (const e of ctx.enemyUnits) {
+      const n = clusterCount(ctx.enemyUnits, e.pos, 1);
+      if (n > bestN) { bestN = n; best = e.pos; }
+    }
+    if (bestN >= 3 && best && dist(u.pos, best) <= RANGE.mage) {
+      actions.push({ unitId:u.id, action:"skill", skill:"fireball", target:best });
     }
   }
 
-  // Priests: heal most wounded
+  // Priest heal most wounded (free action, no AP)
   for (const u of ctx.myUnits) {
-    if (u.type !== "priest" || ap < 1) continue;
-    if ((u.cooldowns.heal||0) > 0) continue;
-    const wounded = ctx.myUnits
+    if (u.type !== "priest" || (u.cooldowns.heal||0) > 0) continue;
+    const w = ctx.myUnits
       .filter(a => a.id !== u.id && a.hp < a.maxHp * 0.5)
       .sort((a,b) => a.hp - b.hp);
-    const t = wounded.find(a => dist(u.pos, a.pos) <= RANGE.priest);
-    if (t) { actions.push({ unitId:u.id, action:"skill", skill:"heal", target:t.id }); continue; }
+    const t = w.find(a => dist(u.pos, a.pos) <= RANGE.priest);
+    if (t) { actions.push({ unitId:u.id, action:"skill", skill:"heal", target:t.id }); }
   }
 
-  // Attack with all units (free), then move leftover AP
+  // Attack with all units (free), move melee forward with AP
   for (const u of ctx.myUnits) {
     const hit = targets.find(e => dist(u.pos, e.pos) <= RANGE[u.type]);
     if (hit) { actions.push({ unitId:u.id, action:"attack", targetUnitId:hit.id }); continue; }
-    // Can't attack → move toward nearest enemy
+    // Ranged don't need to move unless AP is spare and enemy is far
+    if (u.type === "archer" || u.type === "mage" || u.type === "priest") continue;
+    // Melee: move toward nearest enemy
     if (ap < 1) continue;
     const goal = targets[0];
     if (goal) {
