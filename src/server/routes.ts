@@ -305,10 +305,11 @@ const PAGE_FILES: Record<string, string> = {
   matches: "matches.html",
   arena: "arena.html",
   leaderboard: "leaderboard.html",
+  army: "army.html",
   stub: "stub.html",
 };
 
-const STUB_SECTIONS = ["army", "about"] as const;
+const STUB_SECTIONS = ["about"] as const;
 
 function pickLang(c: Context): "zh" | "en" {
   const cookieHeader = c.req.header("cookie") ?? "";
@@ -342,6 +343,8 @@ app.get("/zh/arena", (c) => servePage(c, "arena"));
 app.get("/en/arena", (c) => servePage(c, "arena"));
 app.get("/zh/leaderboard", (c) => servePage(c, "leaderboard"));
 app.get("/en/leaderboard", (c) => servePage(c, "leaderboard"));
+app.get("/zh/army", (c) => servePage(c, "army"));
+app.get("/en/army", (c) => servePage(c, "army"));
 for (const section of STUB_SECTIONS) {
   app.get(`/zh/${section}`, (c) => servePage(c, "stub"));
   app.get(`/en/${section}`, (c) => servePage(c, "stub"));

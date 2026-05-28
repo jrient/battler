@@ -178,5 +178,19 @@
   "me.manage.danger_section": "危险操作",
   "me.manage.delete_btn": "删除此 Commander",
   "me.manage.delete_confirm": "确认删除吗？此操作不可撤销。",
-  "me.manage.close": "关闭"
+  "me.manage.close": "关闭",
+
+  "army.title": "兵种",
+  "army.subtitle": "全部单位属性与技能一览",
+  "army.stat.hp": "生命",
+  "army.stat.atk": "攻击",
+  "army.stat.range": "射程",
+  "army.stat.move": "移动",
+  "army.stat.recruit": "招募",
+  "army.special.knight": "受到的所有伤害减半",
+  "army.special.spear": "攻击时穿透目标，对身后单位造成一半伤害",
+  "army.skill.fireball.name": "火球术",
+  "army.skill.fireball.desc": "范围伤害半径1，造成25点伤害",
+  "army.skill.heal.name": "治疗",
+  "army.skill.heal.desc": "治疗友方单位+25 HP"
 }

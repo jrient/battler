@@ -178,5 +178,19 @@
   "me.manage.danger_section": "Danger Zone",
   "me.manage.delete_btn": "Delete Commander",
   "me.manage.delete_confirm": "Are you sure? This cannot be undone.",
-  "me.manage.close": "Close"
+  "me.manage.close": "Close",
+
+  "army.title": "Units",
+  "army.subtitle": "Complete unit stats and skill reference",
+  "army.stat.hp": "HP",
+  "army.stat.atk": "ATK",
+  "army.stat.range": "Range",
+  "army.stat.move": "Move",
+  "army.stat.recruit": "Recruit",
+  "army.special.knight": "All incoming damage halved",
+  "army.special.spear": "Attack pierces through target, hitting unit behind for half damage",
+  "army.skill.fireball.name": "Fireball",
+  "army.skill.fireball.desc": "AOE radius 1, 25 damage",
+  "army.skill.heal.name": "Heal",
+  "army.skill.heal.desc": "Heal friendly unit +25 HP"
 }
