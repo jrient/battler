@@ -64,7 +64,7 @@
     <div class="matches-head">
       <h1 data-i18n="matches.title">对战记录</h1>
       <div class="filter-tabs">
-        <button class="filter-tab active" data-filter="all" data-i18n="matches.filter.all">全部</button>
+        <button class="filter-tab" data-filter="all" data-i18n="matches.filter.all">全部</button>
         <button class="filter-tab" data-filter="mine" data-i18n="matches.filter.mine">我的</button>
       </div>
     </div>
@@ -93,6 +93,12 @@
         const who = await api.get("/api/me/whoami");
         signedIn = !!who.signedIn;
       } catch { /* keep signedIn=false */ }
+
+      if (signedIn) {
+        currentFilter = "mine";
+        document.querySelector('.filter-tab[data-filter="all"]')?.classList.remove("active");
+        document.querySelector('.filter-tab[data-filter="mine"]')?.classList.add("active");
+      }
 
       function escapeHtml(s) {
         return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
