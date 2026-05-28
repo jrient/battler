@@ -44,10 +44,9 @@ import {
 } from "./auth.js";
 
 const SIMULATE_COOLDOWN_MS = 2000;
-const CHALLENGE_COOLDOWN_MS = 30_000;
+const CHALLENGE_COOLDOWN_MS = 60_000;
 
-// Per-commander cooldown for ranked challenges. Kept in memory because losing
-// it on restart only means an unlucky few get to skip one cooldown.
+// Per-user cooldown for ranked challenges (one challenge per minute across all commanders).
 const challengeLastAt = new Map<string, number>();
 
 // In-memory rate limiter for /agent-init/* (60 req/hour per IP)
@@ -228,8 +227,8 @@ app.get("/api/me/matches", (c) => {
       matchId: m.matchId,
       createdAt: m.createdAt,
       type: m.type,
-      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy },
-      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy },
+      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
+      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
       resultA: m.resultA,
       summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
     })),
@@ -488,8 +487,8 @@ app.get("/api/matches", (c) => {
       matchId: m.matchId,
       createdAt: m.createdAt,
       type: m.type,
-      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy },
-      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy },
+      participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
+      participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
       resultA: m.resultA,
       summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
     })),
@@ -504,8 +503,8 @@ app.get("/api/matches/:id/replay", (c) => {
   return c.json({
     matchId: m.matchId,
     createdAt: m.createdAt,
-    participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, version: m.participantA.version },
-    participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, version: m.participantB.version },
+    participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, version: m.participantA.version, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
+    participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, version: m.participantB.version, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
     turnSnapshots: m.agentJsonForA.turnSnapshots ?? [],
     events: m.agentJsonForA.events,
     summary: m.agentJsonForA.summary,
@@ -853,7 +852,8 @@ async function runChallenge(c: Context, cmd: CommanderRecord, body: unknown): Pr
   }
 
   const now = Date.now();
-  const last = challengeLastAt.get(cmd.id);
+  const rateKey = cmd.ownerId ?? cmd.id;
+  const last = challengeLastAt.get(rateKey);
   if (last && now - last < CHALLENGE_COOLDOWN_MS) {
     const nextAt = new Date(last + CHALLENGE_COOLDOWN_MS).toISOString();
     return c.json({ error: "rate_limited", nextChallengeAt: nextAt }, 429);
@@ -935,7 +935,7 @@ async function runChallenge(c: Context, cmd: CommanderRecord, body: unknown): Pr
     agentJsonForB: agentJsonB,
   });
 
-  challengeLastAt.set(cmd.id, now);
+  challengeLastAt.set(rateKey, now);
 
   return c.json({
     result: aResult,
@@ -962,6 +962,11 @@ async function runChallenge(c: Context, cmd: CommanderRecord, body: unknown): Pr
     } : null,
     nextChallengeAt: new Date(now + CHALLENGE_COOLDOWN_MS).toISOString(),
   });
+}
+
+function resolveDisplayName(commanderId: string, submittedBy: string): string {
+  const cmd = getCommanderById(commanderId);
+  return cmd?.displayName || submittedBy;
 }
 
 async function safeJson(c: Context): Promise<unknown> {

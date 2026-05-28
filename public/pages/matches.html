@@ -116,8 +116,8 @@
       }
 
       function renderRow(m) {
-        const a = m.participantA.submittedBy || "—";
-        const b = m.participantB.submittedBy || "—";
+        const a = m.participantA.displayName || m.participantA.submittedBy || "—";
+        const b = m.participantB.displayName || m.participantB.submittedBy || "—";
         const cls = m.resultA === "win" ? "win" : m.resultA === "loss" ? "loss" : "draw";
         const label = t(`matches.result.${cls}`);
         const typeChip = m.type === "challenge"
