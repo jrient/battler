@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { nanoid } from "nanoid";
 import type { AgentJson } from "../engine/replay.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -9,16 +10,28 @@ const ROOT = resolve(__dirname, "..", "..");
 const DATA_DIR = resolve(ROOT, "data");
 const STORE_FILE = resolve(DATA_DIR, "store.json");
 
+export interface UserRecord {
+  id: string;            // "usr_xxxxxxxx"
+  githubId: number;      // GitHub numeric user id
+  githubLogin: string;   // GitHub username (mutable on GitHub side)
+  avatarUrl: string;
+  displayName: string;   // GitHub name or login
+  createdAt: string;
+}
+
 export interface CommanderRecord {
   id: string;
   commanderKey: string;
-  displayName: string;
+  bootstrapToken: string;
+  ownerId: string | null;       // User.id; null = orphaned legacy
+  displayName: string;          // globally unique handle, [a-zA-Z0-9_-]{3,32}
   code: string;
   codeVersion: number;
   codeHash: string;
   submittedBy: string;
   changelog: string;
   codeUpdatedAt: string;
+  createdAt: string;
   rank: RankInfo;
   recentMatchIds: string[];
 }
@@ -45,12 +58,14 @@ export interface MatchRecord {
 }
 
 interface StoreShape {
+  users: Record<string, UserRecord>;
   commanders: Record<string, CommanderRecord>;
   matches: Record<string, MatchRecord>;
   simulationLastAtByCommander: Record<string, string>;
 }
 
 const EMPTY: StoreShape = {
+  users: {},
   commanders: {},
   matches: {},
   simulationLastAtByCommander: {},
@@ -59,6 +74,72 @@ const EMPTY: StoreShape = {
 let state: StoreShape = EMPTY;
 let loaded = false;
 
+// ===== Display name validation =====
+
+const RESERVED_NAMES = new Set([
+  "admin", "administrator", "anonymous", "api", "auth", "health", "root",
+  "system", "support", "agentclash", "null", "undefined", "test",
+  "red-charger", "blue-turtle", "green-tactician",
+]);
+
+const DISPLAY_NAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/;
+
+export type DisplayNameValidation =
+  | { ok: true; normalized: string }
+  | { ok: false; reason: "format" | "reserved" | "taken"; suggestions?: string[] };
+
+export function validateDisplayName(name: string): DisplayNameValidation {
+  if (!DISPLAY_NAME_PATTERN.test(name)) return { ok: false, reason: "format" };
+  const lower = name.toLowerCase();
+  if (RESERVED_NAMES.has(lower)) {
+    return { ok: false, reason: "reserved", suggestions: makeSuggestions(name) };
+  }
+  if (findCommanderByDisplayName(name)) {
+    return { ok: false, reason: "taken", suggestions: makeSuggestions(name) };
+  }
+  return { ok: true, normalized: name };
+}
+
+function makeSuggestions(name: string): string[] {
+  const base = name.replace(/[-_]+$/, "").slice(0, 28);
+  const year = new Date().getFullYear();
+  const candidates = [
+    `${base}-2`,
+    `${base}-${year}`,
+    `${base}-${nanoid(4).toLowerCase()}`,
+    `${base}_x`,
+  ];
+  const out: string[] = [];
+  for (const c of candidates) {
+    if (!DISPLAY_NAME_PATTERN.test(c)) continue;
+    if (RESERVED_NAMES.has(c.toLowerCase())) continue;
+    if (findCommanderByDisplayName(c)) continue;
+    out.push(c);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+// ===== Persistence =====
+
+function migrateInPlace(s: StoreShape): void {
+  if (!s.users) s.users = {};
+  if (!s.commanders) s.commanders = {};
+  if (!s.matches) s.matches = {};
+  if (!s.simulationLastAtByCommander) s.simulationLastAtByCommander = {};
+
+  for (const c of Object.values(s.commanders)) {
+    const anyC = c as unknown as Record<string, unknown>;
+    if (!("ownerId" in anyC)) anyC.ownerId = null;
+    if (!("bootstrapToken" in anyC) || !anyC.bootstrapToken) {
+      anyC.bootstrapToken = "bst_" + nanoid(32);
+    }
+    if (!("createdAt" in anyC) || !anyC.createdAt) {
+      anyC.createdAt = (c.codeUpdatedAt as string) || new Date(0).toISOString();
+    }
+  }
+}
+
 function ensureLoaded(): void {
   if (loaded) return;
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -66,22 +147,73 @@ function ensureLoaded(): void {
     try {
       const raw = readFileSync(STORE_FILE, "utf8");
       state = JSON.parse(raw) as StoreShape;
-      if (!state.commanders) state.commanders = {};
-      if (!state.matches) state.matches = {};
-      if (!state.simulationLastAtByCommander) state.simulationLastAtByCommander = {};
+      migrateInPlace(state);
     } catch {
-      state = { ...EMPTY };
+      state = { ...EMPTY, users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {} };
     }
   } else {
-    state = { commanders: {}, matches: {}, simulationLastAtByCommander: {} };
+    state = { users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {} };
   }
   loaded = true;
+  flush();
 }
 
 function flush(): void {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(STORE_FILE, JSON.stringify(state, null, 2));
 }
+
+// ===== User =====
+
+export function getUserById(id: string): UserRecord | null {
+  ensureLoaded();
+  return state.users[id] ?? null;
+}
+
+export function getUserByGithubId(githubId: number): UserRecord | null {
+  ensureLoaded();
+  for (const u of Object.values(state.users)) {
+    if (u.githubId === githubId) return u;
+  }
+  return null;
+}
+
+export function createUser(input: {
+  githubId: number;
+  githubLogin: string;
+  avatarUrl: string;
+  displayName: string;
+}): UserRecord {
+  ensureLoaded();
+  const id = "usr_" + nanoid(10);
+  const rec: UserRecord = {
+    id,
+    githubId: input.githubId,
+    githubLogin: input.githubLogin,
+    avatarUrl: input.avatarUrl,
+    displayName: input.displayName,
+    createdAt: new Date().toISOString(),
+  };
+  state.users[id] = rec;
+  flush();
+  return rec;
+}
+
+export function updateUserProfile(
+  id: string,
+  patch: { githubLogin?: string; avatarUrl?: string; displayName?: string },
+): UserRecord | null {
+  ensureLoaded();
+  const u = state.users[id];
+  if (!u) return null;
+  if (patch.githubLogin !== undefined) u.githubLogin = patch.githubLogin;
+  if (patch.avatarUrl !== undefined) u.avatarUrl = patch.avatarUrl;
+  if (patch.displayName !== undefined) u.displayName = patch.displayName;
+  flush();
+  return u;
+}
+
+// ===== Commander =====
 
 export function getCommanderByKey(key: string): CommanderRecord | null {
   ensureLoaded();
@@ -96,18 +228,41 @@ export function getCommanderById(id: string): CommanderRecord | null {
   return state.commanders[id] ?? null;
 }
 
-export function createCommander(input: {
-  id: string;
-  commanderKey: string;
+export function getCommanderByBootstrapToken(token: string): CommanderRecord | null {
+  ensureLoaded();
+  for (const c of Object.values(state.commanders)) {
+    if (c.bootstrapToken === token) return c;
+  }
+  return null;
+}
+
+export function findCommanderByDisplayName(name: string): CommanderRecord | null {
+  ensureLoaded();
+  const lower = name.toLowerCase();
+  for (const c of Object.values(state.commanders)) {
+    if (c.displayName.toLowerCase() === lower) return c;
+  }
+  return null;
+}
+
+export function listCommandersByOwner(ownerId: string): CommanderRecord[] {
+  ensureLoaded();
+  return Object.values(state.commanders)
+    .filter((c) => c.ownerId === ownerId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function createCommanderForOwner(input: {
+  ownerId: string;
   displayName: string;
 }): CommanderRecord {
   ensureLoaded();
-  if (state.commanders[input.id]) {
-    throw new Error(`commander ${input.id} already exists`);
-  }
+  const id = "cmd_" + nanoid(8);
   const rec: CommanderRecord = {
-    id: input.id,
-    commanderKey: input.commanderKey,
+    id,
+    commanderKey: "ack_" + nanoid(24),
+    bootstrapToken: "bst_" + nanoid(32),
+    ownerId: input.ownerId,
     displayName: input.displayName,
     code: "",
     codeVersion: 0,
@@ -115,6 +270,7 @@ export function createCommander(input: {
     submittedBy: "",
     changelog: "",
     codeUpdatedAt: new Date(0).toISOString(),
+    createdAt: new Date().toISOString(),
     rank: {
       score: 1000,
       tier: "Bronze",
@@ -126,9 +282,35 @@ export function createCommander(input: {
     },
     recentMatchIds: [],
   };
-  state.commanders[input.id] = rec;
+  state.commanders[id] = rec;
   flush();
   return rec;
+}
+
+export function regenerateCommanderBootstrapToken(id: string): CommanderRecord | null {
+  ensureLoaded();
+  const c = state.commanders[id];
+  if (!c) return null;
+  c.bootstrapToken = "bst_" + nanoid(32);
+  flush();
+  return c;
+}
+
+export function resetCommanderKey(id: string): CommanderRecord | null {
+  ensureLoaded();
+  const c = state.commanders[id];
+  if (!c) return null;
+  c.commanderKey = "ack_" + nanoid(24);
+  flush();
+  return c;
+}
+
+export function deleteCommander(id: string): boolean {
+  ensureLoaded();
+  if (!state.commanders[id]) return false;
+  delete state.commanders[id];
+  flush();
+  return true;
 }
 
 export function updateCommanderCode(
@@ -147,6 +329,47 @@ export function updateCommanderCode(
   flush();
   return rec;
 }
+
+// Legacy: kept for back-compat with /api/register (no owner)
+export function createCommander(input: {
+  id: string;
+  commanderKey: string;
+  displayName: string;
+}): CommanderRecord {
+  ensureLoaded();
+  if (state.commanders[input.id]) {
+    throw new Error(`commander ${input.id} already exists`);
+  }
+  const rec: CommanderRecord = {
+    id: input.id,
+    commanderKey: input.commanderKey,
+    bootstrapToken: "bst_" + nanoid(32),
+    ownerId: null,
+    displayName: input.displayName,
+    code: "",
+    codeVersion: 0,
+    codeHash: "",
+    submittedBy: "",
+    changelog: "",
+    codeUpdatedAt: new Date(0).toISOString(),
+    createdAt: new Date().toISOString(),
+    rank: {
+      score: 1000,
+      tier: "Bronze",
+      division: "III",
+      placementMatches: 0,
+      effectiveWins: 0,
+      effectiveLosses: 0,
+      lastRankChange: 0,
+    },
+    recentMatchIds: [],
+  };
+  state.commanders[input.id] = rec;
+  flush();
+  return rec;
+}
+
+// ===== Matches =====
 
 export function saveMatch(rec: MatchRecord): void {
   ensureLoaded();
@@ -200,4 +423,16 @@ export function listMatches(limit = 50, offset = 0): { matches: MatchRecord[]; t
     (a, b) => b.createdAt.localeCompare(a.createdAt),
   );
   return { matches: all.slice(offset, offset + limit), total: all.length };
+}
+
+export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): MatchRecord[] {
+  ensureLoaded();
+  const myCmdIds = new Set(
+    Object.values(state.commanders).filter((c) => c.ownerId === ownerId).map((c) => c.id),
+  );
+  if (myCmdIds.size === 0) return [];
+  const all = Object.values(state.matches)
+    .filter((m) => myCmdIds.has(m.participantA.commanderId) || myCmdIds.has(m.participantB.commanderId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return all.slice(offset, offset + limit);
 }
