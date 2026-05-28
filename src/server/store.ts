@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
@@ -9,6 +9,7 @@ const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "..", "..");
 const DATA_DIR = resolve(ROOT, "data");
 const STORE_FILE = resolve(DATA_DIR, "store.json");
+const MATCHES_DIR = resolve(DATA_DIR, "matches");
 
 export interface UserRecord {
   id: string;            // "usr_xxxxxxxx"
@@ -57,10 +58,28 @@ export interface MatchRecord {
   agentJsonForB: AgentJson;
 }
 
+// Lightweight summary held in store.json. The full MatchRecord (including the
+// turn-by-turn agent JSON, which can be hundreds of KB) lives in
+// data/matches/<matchId>.json. Keeps store.json bounded regardless of match
+// volume so the V8 string-length cap on JSON.stringify never gets hit.
+export interface MatchIndex {
+  matchId: string;
+  createdAt: string;
+  type: "simulate" | "challenge";
+  seed: number;
+  participantA: { commanderId: string; submittedBy: string; version: number };
+  participantB: { commanderId: string; submittedBy: string; version: number };
+  // A-side perspective. B's view is the mirror (result inverted, units swapped).
+  resultA: "win" | "loss" | "draw";
+  totalTurns: number;
+  aUnitsRemaining: number;
+  bUnitsRemaining: number;
+}
+
 interface StoreShape {
   users: Record<string, UserRecord>;
   commanders: Record<string, CommanderRecord>;
-  matches: Record<string, MatchRecord>;
+  matches: Record<string, MatchIndex>;
   simulationLastAtByCommander: Record<string, string>;
 }
 
@@ -139,6 +158,23 @@ function migrateInPlace(s: StoreShape): void {
     if (!("createdAt" in anyC) || !anyC.createdAt) {
       anyC.createdAt = (c.codeUpdatedAt as string) || new Date(0).toISOString();
     }
+  }
+
+  // Split fat MatchRecord entries (legacy: full agentJson lived inside store.json)
+  // into per-file storage, replacing the in-memory entry with a slim MatchIndex.
+  if (!existsSync(MATCHES_DIR)) mkdirSync(MATCHES_DIR, { recursive: true });
+  let migrated = 0;
+  for (const [id, m] of Object.entries(s.matches)) {
+    const anyM = m as unknown as Record<string, unknown>;
+    if ("agentJsonForA" in anyM && "agentJsonForB" in anyM) {
+      const fat = m as unknown as MatchRecord;
+      writeMatchFile(fat);
+      s.matches[id] = indexFromRecord(fat);
+      migrated++;
+    }
+  }
+  if (migrated > 0) {
+    console.log(`[store] migrated ${migrated} fat matches into ${MATCHES_DIR}`);
   }
 }
 
@@ -315,6 +351,15 @@ export function deleteCommander(id: string): boolean {
   return true;
 }
 
+export function applyRankUpdate(id: string, newRank: RankInfo): CommanderRecord | null {
+  ensureLoaded();
+  const rec = state.commanders[id];
+  if (!rec) return null;
+  rec.rank = newRank;
+  flush();
+  return rec;
+}
+
 export function updateCommanderCode(
   id: string,
   patch: { code: string; codeHash: string; submittedBy: string; changelog: string },
@@ -371,11 +416,48 @@ export function createCommander(input: {
   return rec;
 }
 
+// ===== Match file I/O =====
+
+function matchFilePath(matchId: string): string {
+  return resolve(MATCHES_DIR, `${matchId}.json`);
+}
+
+function writeMatchFile(rec: MatchRecord): void {
+  if (!existsSync(MATCHES_DIR)) mkdirSync(MATCHES_DIR, { recursive: true });
+  writeFileSync(matchFilePath(rec.matchId), JSON.stringify(rec));
+}
+
+function readMatchFile(matchId: string): MatchRecord | null {
+  const p = matchFilePath(matchId);
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, "utf8")) as MatchRecord;
+  } catch {
+    return null;
+  }
+}
+
+function indexFromRecord(rec: MatchRecord): MatchIndex {
+  return {
+    matchId: rec.matchId,
+    createdAt: rec.createdAt,
+    type: rec.type,
+    seed: rec.seed,
+    participantA: rec.participantA,
+    participantB: rec.participantB,
+    resultA: rec.agentJsonForA.result,
+    totalTurns: rec.agentJsonForA.summary.totalTurns,
+    aUnitsRemaining: rec.agentJsonForA.summary.myUnitsRemaining,
+    bUnitsRemaining: rec.agentJsonForA.summary.enemyUnitsRemaining,
+  };
+}
+
 // ===== Matches =====
 
 export function saveMatch(rec: MatchRecord): void {
   ensureLoaded();
-  state.matches[rec.matchId] = rec;
+  writeMatchFile(rec);
+  state.matches[rec.matchId] = indexFromRecord(rec);
   const aId = rec.participantA.commanderId;
   const bId = rec.participantB.commanderId;
   const aCmd = state.commanders[aId];
@@ -391,7 +473,7 @@ export function saveMatch(rec: MatchRecord): void {
 
 export function getMatch(id: string): MatchRecord | null {
   ensureLoaded();
-  return state.matches[id] ?? null;
+  return readMatchFile(id);
 }
 
 export function getSimulationLastAt(commanderId: string): Date | null {
@@ -411,15 +493,15 @@ export function listCommanders(): CommanderRecord[] {
   return Object.values(state.commanders);
 }
 
-export function getMatchesByCommander(commanderId: string, limit = 20, offset = 0): MatchRecord[] {
+export function getMatchesByCommander(commanderId: string, limit = 20, offset = 0): MatchIndex[] {
   ensureLoaded();
   const cmd = state.commanders[commanderId];
   if (!cmd) return [];
   const ids = cmd.recentMatchIds.slice(offset, offset + limit);
-  return ids.map(id => state.matches[id]).filter((m): m is MatchRecord => !!m);
+  return ids.map(id => state.matches[id]).filter((m): m is MatchIndex => !!m);
 }
 
-export function listMatches(limit = 50, offset = 0): { matches: MatchRecord[]; total: number } {
+export function listMatches(limit = 50, offset = 0): { matches: MatchIndex[]; total: number } {
   ensureLoaded();
   const all = Object.values(state.matches).sort(
     (a, b) => b.createdAt.localeCompare(a.createdAt),
@@ -427,7 +509,7 @@ export function listMatches(limit = 50, offset = 0): { matches: MatchRecord[]; t
   return { matches: all.slice(offset, offset + limit), total: all.length };
 }
 
-export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): MatchRecord[] {
+export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): MatchIndex[] {
   ensureLoaded();
   const myCmdIds = new Set(
     Object.values(state.commanders).filter((c) => c.ownerId === ownerId).map((c) => c.id),
