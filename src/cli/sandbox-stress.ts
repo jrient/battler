@@ -45,7 +45,7 @@ const cases: Array<{ name: string; code: string; expect: "compile-error" | "time
 
 const dummyCtx = {
   myUnits: [], enemyUnits: [], myArmy: [], enemyArmy: [],
-  myAP: 5, turn: 1, history: [], rng: () => 0.5,
+  myAP: 10, myMoney: 17, turn: 1, history: [], rng: () => 0.5,
 };
 
 let failed = 0;

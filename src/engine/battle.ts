@@ -3,15 +3,15 @@ import {
   BOARD_WIDTH,
   BOARD_HEIGHT,
   MAX_TURNS,
-  RECRUIT_TURNS,
+  BUY_TURNS,
   AP_PER_TURN,
-  RECRUIT_AP_BASE,
-  RECRUIT_AP_PER_TURN,
+  STARTING_MONEY,
+  MONEY_INCOME_BASE,
+  MONEY_INCOME_PER_TURN,
   FIREBALL_DAMAGE,
   FIREBALL_AOE_RADIUS,
   HEAL_AMOUNT,
 } from "./units.js";
-import { dealArmies } from "./deal.js";
 import { makeRng } from "./rng.js";
 import type {
   Action,
@@ -43,26 +43,22 @@ interface ValidatedAction {
   raw: Action;
 }
 
-interface ValidatedRecruit {
+interface ValidatedBuy {
   unitType: UnitType;
-  recruitAP: number;
+  cost: number;
   side: Side;
 }
 
 export function runMatch(opts: RunMatchOptions): MatchOutput {
   const rng = makeRng(opts.seed);
-  const deal = dealArmies(rng);
-  const units: Unit[] = [...deal.unitsA, ...deal.unitsB];
+  // Both sides start empty and buy their army with money during the buy window.
+  const units: Unit[] = [];
 
-  // Track unit ID sequence counters per side for recruiting
+  // Track unit ID sequence counters per side for purchases
   const seqCounters: Record<Side, Record<UnitType, number>> = {
     A: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
     B: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
   };
-  // Initialize from dealt units
-  for (const u of units) {
-    seqCounters[u.side][u.type]++;
-  }
 
   const allEvents: string[] = [];
   const turns: TurnRecord[] = [];
@@ -78,8 +74,8 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
   let winner: Side | "draw" | null = null;
   let turnIdx = 0;
 
-  let recruitPoolA = 0;
-  let recruitPoolB = 0;
+  let moneyA = STARTING_MONEY;
+  let moneyB = STARTING_MONEY;
 
   for (turnIdx = 1; turnIdx <= MAX_TURNS; turnIdx++) {
     tickCooldowns(units);
@@ -91,27 +87,27 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     const aliveA = units.filter((u) => u.side === "A" && u.hp > 0);
     const aliveB = units.filter((u) => u.side === "B" && u.hp > 0);
 
-    if (turnIdx <= RECRUIT_TURNS) {
-      const add = turnIdx === 1 ? RECRUIT_AP_BASE : RECRUIT_AP_PER_TURN;
-      recruitPoolA += add;
-      recruitPoolB += add;
+    if (turnIdx <= BUY_TURNS) {
+      const income = MONEY_INCOME_BASE + MONEY_INCOME_PER_TURN * turnIdx;
+      moneyA += income;
+      moneyB += income;
     }
-    const recruitAPA = turnIdx <= RECRUIT_TURNS ? recruitPoolA : 0;
-    const recruitAPB = turnIdx <= RECRUIT_TURNS ? recruitPoolB : 0;
+    const moneyAvailA = turnIdx <= BUY_TURNS ? moneyA : 0;
+    const moneyAvailB = turnIdx <= BUY_TURNS ? moneyB : 0;
 
-    const ctxA = buildCtx(aliveA, aliveB, deal.armyA, deal.armyB, turnIdx, turns, opts.seed, "A", recruitAPA);
-    const ctxB = buildCtx(aliveB, aliveA, deal.armyB, deal.armyA, turnIdx, turns, opts.seed, "B", recruitAPB);
+    const ctxA = buildCtx(aliveA, aliveB, armyEntries(units, "A"), armyEntries(units, "B"), turnIdx, turns, opts.seed, "A", moneyAvailA);
+    const ctxB = buildCtx(aliveB, aliveA, armyEntries(units, "B"), armyEntries(units, "A"), turnIdx, turns, opts.seed, "B", moneyAvailB);
 
     const rawA = safeDecide(opts.decideA, ctxA);
     const rawB = safeDecide(opts.decideB, ctxB);
 
-    const { combat: actsA, recruits: recA } = validateAndSplit(rawA, units, "A", recruitAPA);
-    const { combat: actsB, recruits: recB } = validateAndSplit(rawB, units, "B", recruitAPB);
+    const { combat: actsA, buys: buyA } = validateAndSplit(rawA, units, "A", moneyAvailA);
+    const { combat: actsB, buys: buyB } = validateAndSplit(rawB, units, "B", moneyAvailB);
 
-    const spentA = recA.reduce((s, r) => s + r.recruitAP, 0);
-    const spentB = recB.reduce((s, r) => s + r.recruitAP, 0);
-    recruitPoolA -= spentA;
-    recruitPoolB -= spentB;
+    const spentA = buyA.reduce((s, r) => s + r.cost, 0);
+    const spentB = buyB.reduce((s, r) => s + r.cost, 0);
+    moneyA -= spentA;
+    moneyB -= spentB;
 
     const turnEvents: string[] = [];
     const turnEventsHeader = `[T${turnIdx}] -- turn start --`;
@@ -137,9 +133,9 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     bLost += deaths.bLost;
     phases.push({ phase: "death", units: snapshotUnits(units) });
 
-    phaseRecruit(recA, units, seqCounters, rng, turnEvents);
-    phaseRecruit(recB, units, seqCounters, rng, turnEvents);
-    phases.push({ phase: "recruit", units: snapshotUnits(units) });
+    phaseBuy(buyA, units, seqCounters, rng, turnEvents);
+    phaseBuy(buyB, units, seqCounters, rng, turnEvents);
+    phases.push({ phase: "buy", units: snapshotUnits(units) });
 
     const turnDamage = dmgFromA + dmgFromB;
     if (turnDamage > maxDamageInTurn) {
@@ -148,8 +144,8 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       decisiveEvent = `T${turnIdx} dealt ${turnDamage} total damage (A→B ${dmgFromA}, B→A ${dmgFromB})`;
     }
 
-    const allActionsA = [...actsA.map((a) => a.raw), ...recA.map((r) => ({ action: "recruit" as const, unitType: r.unitType }))];
-    const allActionsB = [...actsB.map((a) => a.raw), ...recB.map((r) => ({ action: "recruit" as const, unitType: r.unitType }))];
+    const allActionsA = [...actsA.map((a) => a.raw), ...buyA.map((r) => ({ action: "buy" as const, unitType: r.unitType }))];
+    const allActionsB = [...actsB.map((a) => a.raw), ...buyB.map((r) => ({ action: "buy" as const, unitType: r.unitType }))];
 
     turns.push({
       turn: turnIdx,
@@ -163,15 +159,23 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     const stillAliveA = units.filter((u) => u.side === "A" && u.hp > 0).length;
     const stillAliveB = units.filter((u) => u.side === "B" && u.hp > 0).length;
 
-    if (stillAliveA === 0 && stillAliveB === 0) {
+    // A side isn't "eliminated" before it has fielded anything — otherwise the
+    // empty opening (turns before either side can afford a unit) would end the
+    // match instantly. Once the buy window closes, an empty roster is a loss.
+    const everFieldedA = units.some((u) => u.side === "A");
+    const everFieldedB = units.some((u) => u.side === "B");
+    const aGone = stillAliveA === 0 && (everFieldedA || turnIdx > BUY_TURNS);
+    const bGone = stillAliveB === 0 && (everFieldedB || turnIdx > BUY_TURNS);
+
+    if (aGone && bGone) {
       winner = "draw";
       allEvents.push(`[END] mutual annihilation at turn ${turnIdx}`);
       break;
-    } else if (stillAliveA === 0) {
+    } else if (aGone) {
       winner = "B";
       allEvents.push(`[END] B wins by total elimination at turn ${turnIdx}`);
       break;
-    } else if (stillAliveB === 0) {
+    } else if (bGone) {
       winner = "A";
       allEvents.push(`[END] A wins by total elimination at turn ${turnIdx}`);
       break;
@@ -203,8 +207,8 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     seed: opts.seed,
     winner,
     totalTurns: playedTurns,
-    armyA: deal.armyA,
-    armyB: deal.armyB,
+    armyA: armyEntries(units, "A"),
+    armyB: armyEntries(units, "B"),
     events: allEvents,
     turns,
     turnSnapshots,
@@ -243,53 +247,28 @@ function safeDecide(fn: DecideFn, ctx: DecideCtx): Action[] {
   }
 }
 
-function validateAndTruncate(raw: Action[], allUnits: Unit[], side: Side): ValidatedAction[] {
-  const validated: ValidatedAction[] = [];
-  const usedUnitIds = new Set<string>();
-  let apRemaining = AP_PER_TURN;
-
-  for (const a of raw) {
-    if (!a || typeof a !== "object") continue;
-    if (a.action === "recruit") continue; // handled by validateAndSplit
-    if (typeof a.unitId !== "string") continue;
-    if (usedUnitIds.has(a.unitId)) continue;
-
-    const unit = allUnits.find((u) => u.id === a.unitId && u.side === side && u.hp > 0);
-    if (!unit) continue;
-
-    const apCost = computeApCost(a, unit);
-    if (apCost === null) continue;
-    if (apCost > apRemaining) continue;
-
-    validated.push({ unit, apCost, raw: a });
-    usedUnitIds.add(a.unitId);
-    apRemaining -= apCost;
-  }
-  return validated;
-}
-
 function validateAndSplit(
   raw: Action[],
   allUnits: Unit[],
   side: Side,
-  recruitBudget: number,
-): { combat: ValidatedAction[]; recruits: ValidatedRecruit[] } {
+  moneyBudget: number,
+): { combat: ValidatedAction[]; buys: ValidatedBuy[] } {
   const combat: ValidatedAction[] = [];
-  const recruits: ValidatedRecruit[] = [];
+  const buys: ValidatedBuy[] = [];
   const usedUnitIds = new Set<string>();
   let apRemaining = AP_PER_TURN;
-  let rpRemaining = recruitBudget;
+  let moneyRemaining = moneyBudget;
 
   for (const a of raw) {
     if (!a || typeof a !== "object") continue;
 
-    if (a.action === "recruit") {
-      const unitType = (a as { action: "recruit"; unitType: UnitType }).unitType;
+    if (a.action === "buy") {
+      const unitType = (a as { action: "buy"; unitType: UnitType }).unitType;
       if (!UNITS[unitType]) continue;
-      const cost = UNITS[unitType].recruitAP;
-      if (cost > rpRemaining) continue;
-      recruits.push({ unitType, recruitAP: cost, side });
-      rpRemaining -= cost;
+      const cost = UNITS[unitType].cost;
+      if (cost > moneyRemaining) continue;
+      buys.push({ unitType, cost, side });
+      moneyRemaining -= cost;
       continue;
     }
 
@@ -307,17 +286,20 @@ function validateAndSplit(
     usedUnitIds.add(a.unitId);
     apRemaining -= apCost;
   }
-  return { combat, recruits };
+  return { combat, buys };
 }
 
 function computeApCost(action: Action, unit: Unit): number | null {
   switch (action.action) {
     case "move":
-    case "attack":
       return UNITS[unit.type].actionAP;
+    case "attack":
+      return 0;
     case "skill": {
+      // Skills are free; still require a valid skill name (cooldown is enforced
+      // later in the skill phase).
       const def = UNITS[unit.type].skills.find((s) => s.name === action.skill);
-      return def?.apCost ?? null;
+      return def ? 0 : null;
     }
     case "defend":
       return 0;
@@ -488,14 +470,14 @@ function phaseDeath(units: Unit[], events: string[]): { aLost: number; bLost: nu
   return { aLost, bLost };
 }
 
-function phaseRecruit(
-  recruits: ValidatedRecruit[],
+function phaseBuy(
+  buys: ValidatedBuy[],
   allUnits: Unit[],
   seqCounters: Record<Side, Record<UnitType, number>>,
   rng: ReturnType<typeof makeRng>,
   events: string[],
 ): void {
-  for (const r of recruits) {
+  for (const r of buys) {
     const def = UNITS[r.unitType];
     const side = r.side;
     seqCounters[side][r.unitType]++;
@@ -513,7 +495,7 @@ function phaseRecruit(
     }
 
     if (emptyCells.length === 0) {
-      events.push(`[rec] ${side} recruit ${r.unitType} failed: no space in spawn zone`);
+      events.push(`[buy] ${side} buy ${r.unitType} failed: no space in spawn zone`);
       continue;
     }
 
@@ -531,7 +513,7 @@ function phaseRecruit(
       defending: false,
     };
     allUnits.push(unit);
-    events.push(`[rec] ${side} recruited ${id} at [${pos[0]},${pos[1]}]`);
+    events.push(`[buy] ${side} bought ${id} at [${pos[0]},${pos[1]}]`);
   }
 }
 
@@ -558,7 +540,7 @@ function buildCtx(
   history: TurnRecord[],
   seed: number,
   side: Side,
-  recruitAP: number,
+  money: number,
 ): DecideCtx {
   const sideRng = makeRng(seed ^ (turn * 0x9e3779b1) ^ (side === "A" ? 1 : 2));
   return {
@@ -567,11 +549,22 @@ function buildCtx(
     myArmy,
     enemyArmy,
     myAP: AP_PER_TURN,
-    myRecruitAP: recruitAP,
+    myMoney: money,
     turn,
     history,
     rng: sideRng,
   };
+}
+
+// Composition of every unit a side has fielded so far (dead units stay in the
+// array, so this reflects the cumulative roster, not just survivors).
+function armyEntries(units: Unit[], side: Side): ArmyEntry[] {
+  const counts = new Map<UnitType, number>();
+  for (const u of units) {
+    if (u.side !== side) continue;
+    counts.set(u.type, (counts.get(u.type) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([type, count]) => ({ type, count }));
 }
 
 function toPublic(u: Unit): PublicUnit {

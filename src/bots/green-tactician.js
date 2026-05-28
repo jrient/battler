@@ -4,7 +4,7 @@
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
 const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
 const PRIORITY = { priest: 1, mage: 2, archer: 3, spear: 4, knight: 5 };
-const RECRUIT_AP = { knight: 5, spear: 3, archer: 4, mage: 5, priest: 4 };
+const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
 
 function manhattan(a, b) {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
@@ -106,20 +106,20 @@ export function decideTurn(ctx) {
     }
   }
 
-  // Recruit: one of each type in order (balanced composition), then spend rest on spears
-  const rp = ctx.myRecruitAP || 0;
-  let rpLeft = rp;
-  const recruitCycle = ["spear", "archer", "priest", "knight", "mage"];
-  for (const t of recruitCycle) {
-    if (rpLeft >= RECRUIT_AP[t]) {
-      actions.push({ action: "recruit", unitType: t });
-      rpLeft -= RECRUIT_AP[t];
+  // Buy: one of each type in order (balanced composition), then spend rest on spears
+  const money = ctx.myMoney || 0;
+  let moneyLeft = money;
+  const buyCycle = ["spear", "archer", "priest", "knight", "mage"];
+  for (const t of buyCycle) {
+    if (moneyLeft >= COST[t]) {
+      actions.push({ action: "buy", unitType: t });
+      moneyLeft -= COST[t];
     }
   }
-  // Spend remaining on spears (3 AP each, cheapest + best DPS/AP)
-  while (rpLeft >= RECRUIT_AP.spear) {
-    actions.push({ action: "recruit", unitType: "spear" });
-    rpLeft -= RECRUIT_AP.spear;
+  // Spend remaining on spears (cheapest + best DPS per money)
+  while (moneyLeft >= COST.spear) {
+    actions.push({ action: "buy", unitType: "spear" });
+    moneyLeft -= COST.spear;
   }
 
   return actions;

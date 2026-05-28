@@ -52,15 +52,25 @@ Create a JS file that exports exactly one function:
 
 ```js
 export function decideTurn(ctx) {
-  // ctx.myUnits    — your alive units (array)
+  // ctx.myUnits    — your alive units (array; EMPTY on turn 1 — you start with nothing!)
   // ctx.enemyUnits — enemy alive units (array, fully visible)
-  // ctx.myAP       — action points this turn (always 5)
-  // ctx.turn       — turn number (1 to 30)
+  // ctx.myAP       — action points to operate units this turn (10)
+  // ctx.myMoney    — money available to buy new units this turn
+  // ctx.turn       — turn number (1 to 50)
   // ctx.rng()      — random number [0,1), use instead of Math.random
 
+  const COST = { knight:30, spear:20, archer:25, mage:35, priest:25 };
   const actions = [];
-  let ap = ctx.myAP;
 
+  // 1) Buy units with money (only works during the buy window, turns 1–10)
+  let money = ctx.myMoney;
+  while (money >= COST.spear) {
+    actions.push({ action: "buy", unitType: "spear" });
+    money -= COST.spear;
+  }
+
+  // 2) Operate the units you already have, using action points
+  let ap = ctx.myAP;
   for (const u of ctx.myUnits) {
     if (ap < 1) break;
 
@@ -232,35 +242,38 @@ Both sides submit actions simultaneously. Engine resolves in order:
 5. **Death** — units with hp ≤ 0 removed
 
 ### Victory
-- Eliminate all enemy units → you win
+- Eliminate all enemy units → you win (only counts once that side has fielded a unit)
 - Both eliminated same turn → draw
-- After 30 turns → compare remaining army strength
+- After 50 turns → compare remaining army strength
+- Buy nothing the whole buy window and you'll have no army — you lose once the window closes
 
-### Recruit System
-- Recruit AP: T1=8 base, +5 each turn, unused carries over (T1=8, T2=8+5+leftover, ..., T10 max)
-- Recruit AP is separate from combat AP (5 per turn)
-- Recruit action: `{ action: "recruit", unitType: "knight" }` — no unitId needed
-- New units spawn in random empty cells in home columns (0–3 for side A, 12–15 for side B)
-- Recruit phase happens after death phase each turn
-- New units are alive immediately but don't act until next turn
+### Money & Buying
+- **You start with no units.** Build your army by buying with money.
+- Money: you start with **10**, and each turn in the buy window you gain **5 + 2 × turn** (T1 +7, T2 +9, … T10 +25). Unspent money carries over.
+- **Buy window is turns 1–10.** After turn 10 there is no income and you can't buy — you fight with what you have.
+- Buy action: `{ action: "buy", unitType: "knight" }` — no unitId needed. Costs that unit's money cost (see table).
+- New units spawn in random empty cells in your home columns (0–3 for side A, 12–15 for side B), after the death phase.
+- A bought unit is alive immediately but doesn't act until the next turn.
+- Tip: turn 1 you only have 17 money — less than the cheapest unit (spear, 20) — so most strategies buy nothing on turn 1 and start fielding units on turn 2.
 
 ### AP System
-- 5 AP per turn per side
-- Actions: move (1 AP), attack (1 AP), skill (2-3 AP), defend (0 AP)
-- AP exceeded? Actions execute front-to-back, excess silently truncated
-- Same unit twice in one turn? Second action silently ignored, AP still consumed
+- 10 AP per turn per side. **AP is purely a movement budget — only moving costs AP.**
+- move costs **1 AP**. attack, skill, and defend are **free (0 AP)**. Buying costs money, not AP.
+- So AP caps how many units you can reposition per turn (up to 10). A unit that stays put can still attack or cast a skill for free.
+- Attacks/skills are still limited to **one action per unit per turn**, and skills by their cooldown.
+- AP exceeded? Move actions execute front-to-back, excess moves silently truncated.
 
 ---
 
 ## Unit Stats Table
 
-| Unit | HP | ATK | Range | Move | AP Cost | Recruit AP | Special |
+| Unit | HP | ATK | Range | Move | AP/action | Cost ($) | Special |
 |---|---|---|---|---|---|---|---|
-| knight | 100 | 20 | 1 | 3 | 1 | 5 | Takes half damage |
-| spear | 60 | 25 | 2 | 2 | 1 | 3 | Pierce: hits unit behind target too (half dmg) |
-| archer | 40 | 18 | 4 | 2 | 1 | 4 | Long range |
-| mage | 35 | 30 | 3 | 1 | 1 | 5 | Skill `fireball` (3 AP, AOE radius 1, 25 dmg) |
-| priest | 50 | 8 | 2 | 2 | 1 | 4 | Skill `heal` (2 AP, +25 HP to ally) |
+| knight | 100 | 20 | 1 | 3 | 1 | 30 | Takes half damage |
+| spear | 60 | 25 | 2 | 2 | 1 | 20 | Pierce: hits unit behind target too (half dmg) |
+| archer | 40 | 18 | 4 | 2 | 1 | 25 | Long range |
+| mage | 35 | 30 | 3 | 1 | 1 | 35 | Skill `fireball` (free, AOE radius 1, 25 dmg, cooldown 2) |
+| priest | 50 | 8 | 2 | 2 | 1 | 25 | Skill `heal` (free, +25 HP to ally, cooldown 1) |
 
 ---
 
@@ -268,11 +281,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
 
 ```js
 { unitId: "knight_1", action: "move",    target: [3, 4] }          // 1 AP
-{ unitId: "archer_2", action: "attack",  targetUnitId: "enemy_mage_1" } // 1 AP
-{ unitId: "mage_1",   action: "skill",   skill: "fireball", target: [5, 4] } // 3 AP
-{ unitId: "priest_1", action: "skill",   skill: "heal", target: "knight_1" }  // 2 AP
-{ unitId: "spear_1",  action: "defend" }                           // 0 AP
-{ action: "recruit", unitType: "archer" }                          // costs recruit AP, not combat AP
+{ unitId: "archer_2", action: "attack",  targetUnitId: "enemy_mage_1" } // free (0 AP)
+{ unitId: "mage_1",   action: "skill",   skill: "fireball", target: [5, 4] } // free (cooldown 2)
+{ unitId: "priest_1", action: "skill",   skill: "heal", target: "knight_1" }  // free (cooldown 1)
+{ unitId: "spear_1",  action: "defend" }                           // free
+{ action: "buy", unitType: "archer" }                              // costs money, not AP; no unitId
 ```
 
 **Important**:
@@ -296,11 +309,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
     cooldowns: { "fireball": 0 }  // 0 = ready, >0 = turns until ready
   }, ...],
   enemyUnits: [{ ... }],   // same format, fully visible
-  myArmy: [{ type: "knight", count: 1 }, ...],  // your composition
+  myArmy: [{ type: "knight", count: 1 }, ...],  // your composition so far (empty on turn 1)
   enemyArmy: [{ ... }],    // enemy composition
-  myAP: 5,                 // always 5
-  myRecruitAP: 9,          // turn × 3, separate from combat AP
-  turn: 3,                 // 1..30
+  myAP: 10,                // movement budget this turn (only moving costs AP)
+  myMoney: 26,             // money you can spend on new units this turn (0 after the buy window)
+  turn: 3,                 // 1..50
   history: [{ turn: 1, myActions: [...], enemyActions: [...], events: [...] }, ...],
   rng: () => number        // replaces Math.random(), deterministic
 }
@@ -317,11 +330,12 @@ Both sides submit actions simultaneously. Engine resolves in order:
 | `async function decideTurn` | `function decideTurn` — synchronous only |
 | Not checking empty enemyUnits | `if (!ctx.enemyUnits.length) return [];` |
 | Sending 2 actions for 1 unit | Only 1 action per unit per turn |
-| Total AP > 5 | Excess actions silently truncated |
+| Spending AP on attacks/skills | Only moving costs AP — attacks and skills are free |
+| Expecting units on turn 1 | You start empty — `buy` an army first (turn 1 has 17 money) |
 | Publishing without simulating | Always simulate first |
 | Ignoring cooldowns | Check `unit.cooldowns.fireball === 0` before skill |
-| Recruit using combat AP | Recruit uses myRecruitAP, separate from myAP |
-| Adding unitId to recruit | Recruit has no unitId — it creates a new unit |
+| Buying with AP | Buying costs money (ctx.myMoney), not AP |
+| Adding unitId to buy | `buy` has no unitId — it creates a new unit |
 
 ---
 

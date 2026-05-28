@@ -3,8 +3,7 @@
 
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
 const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
-const RECRUIT_AP = { knight: 5, spear: 3, archer: 4, mage: 5, priest: 4 };
-const MAX_HP = { knight: 100, spear: 60, archer: 40, mage: 35, priest: 50 };
+const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
 
 function manhattan(a, b) {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
@@ -128,26 +127,26 @@ export function decideTurn(ctx) {
     actions.push({ unitId: u.id, action: "defend" });
   }
 
-  // Red charger recruit: aggressive, but balance front line
-  const rp = ctx.myRecruitAP || 0;
+  // Red charger buys: aggressive, but balance front line
+  const money = ctx.myMoney || 0;
   const melee = ctx.myUnits.filter(u => u.type === "knight" || u.type === "spear").length;
   const ranged = ctx.myUnits.filter(u => u.type === "archer" || u.type === "mage").length;
   const hasPriest = ctx.myUnits.some(u => u.type === "priest");
 
-  let recruitOrder;
+  let buyOrder;
   if (!hasPriest) {
-    recruitOrder = ["priest", "mage", "knight", "archer", "spear"];
+    buyOrder = ["priest", "mage", "knight", "archer", "spear"];
   } else if (melee <= ranged / 2) {
-    recruitOrder = ["knight", "spear", "mage", "archer", "priest"];
+    buyOrder = ["knight", "spear", "mage", "archer", "priest"];
   } else {
-    recruitOrder = ["mage", "knight", "archer", "spear", "priest"];
+    buyOrder = ["mage", "knight", "archer", "spear", "priest"];
   }
 
-  let rpLeft = rp;
-  for (const t of recruitOrder) {
-    while (rpLeft >= RECRUIT_AP[t]) {
-      actions.push({ action: "recruit", unitType: t });
-      rpLeft -= RECRUIT_AP[t];
+  let moneyLeft = money;
+  for (const t of buyOrder) {
+    while (moneyLeft >= COST[t]) {
+      actions.push({ action: "buy", unitType: t });
+      moneyLeft -= COST[t];
     }
   }
 

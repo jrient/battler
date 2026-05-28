@@ -10,7 +10,6 @@ export interface UnitDef {
   moveRange: number;
   actionAP: number;
   cost: number;
-  recruitAP: number;
   initiative: number;
   special: UnitSpecial;
   skills: SkillDef[];
@@ -58,7 +57,7 @@ export type Action =
   | { unitId: string; action: "attack"; targetUnitId: string }
   | { unitId: string; action: "skill"; skill: string; target: Position | string }
   | { unitId: string; action: "defend" }
-  | { action: "recruit"; unitType: UnitType };
+  | { action: "buy"; unitType: UnitType };
 
 export interface DecideCtx {
   myUnits: PublicUnit[];
@@ -66,7 +65,7 @@ export interface DecideCtx {
   myArmy: ArmyEntry[];
   enemyArmy: ArmyEntry[];
   myAP: number;
-  myRecruitAP: number;
+  myMoney: number;
   turn: number;
   history: TurnRecord[];
   rng: () => number;
@@ -106,7 +105,7 @@ export interface UnitSnapshot {
 }
 
 export interface PhaseSnapshot {
-  phase: "defend" | "move" | "attack" | "skill" | "death" | "recruit";
+  phase: "defend" | "move" | "attack" | "skill" | "death" | "buy";
   units: UnitSnapshot[];
 }
 

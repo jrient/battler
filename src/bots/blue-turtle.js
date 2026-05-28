@@ -3,7 +3,7 @@
 
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
 const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
-const RECRUIT_AP = { knight: 5, spear: 3, archer: 4, mage: 5, priest: 4 };
+const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
 
 function manhattan(a, b) {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
@@ -166,28 +166,28 @@ export function decideTurn(ctx) {
     }
   }
 
-  // Blue turtle recruit: balanced defense, prioritize frontline and healers
-  const rp = ctx.myRecruitAP || 0;
+  // Blue turtle buys: balanced defense, prioritize frontline and healers
+  const money = ctx.myMoney || 0;
   const melee = ctx.myUnits.filter(u => u.type === "knight" || u.type === "spear").length;
   const hasPriest = ctx.myUnits.some(u => u.type === "priest");
   const hasMage = ctx.myUnits.some(u => u.type === "mage");
 
-  let recruitOrder;
+  let buyOrder;
   if (!hasPriest) {
-    recruitOrder = ["priest", "knight", "archer", "spear", "mage"];
+    buyOrder = ["priest", "knight", "archer", "spear", "mage"];
   } else if (!hasMage) {
-    recruitOrder = ["mage", "knight", "archer", "spear", "priest"];
+    buyOrder = ["mage", "knight", "archer", "spear", "priest"];
   } else if (melee < 3) {
-    recruitOrder = ["knight", "spear", "priest", "archer", "mage"];
+    buyOrder = ["knight", "spear", "priest", "archer", "mage"];
   } else {
-    recruitOrder = ["priest", "archer", "knight", "mage", "spear"];
+    buyOrder = ["priest", "archer", "knight", "mage", "spear"];
   }
 
-  let rpLeft = rp;
-  for (const t of recruitOrder) {
-    while (rpLeft >= RECRUIT_AP[t]) {
-      actions.push({ action: "recruit", unitType: t });
-      rpLeft -= RECRUIT_AP[t];
+  let moneyLeft = money;
+  for (const t of buyOrder) {
+    while (moneyLeft >= COST[t]) {
+      actions.push({ action: "buy", unitType: t });
+      moneyLeft -= COST[t];
     }
   }
 

@@ -242,7 +242,7 @@ class ReplayApp {
       else if (ev.includes("[atk]")) cls = "event-attack";
       else if (ev.includes("[skl]")) cls = "event-skill";
       else if (ev.includes("[die]")) cls = "event-death";
-      else if (ev.includes("[rec]")) cls = "event-recruit";
+      else if (ev.includes("[buy]")) cls = "event-recruit";
       else if (ev.includes("[END]")) cls = "event-end";
       div.className = cls;
       div.textContent = ev;
@@ -563,7 +563,7 @@ class ReplayApp {
       case "attack": return 1500;
       case "skill": return 1200;
       case "death": return 800;
-      case "recruit": return 600;
+      case "buy": return 600;
       default: return 600;
     }
   }

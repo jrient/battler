@@ -2,13 +2,16 @@ import type { UnitDef, UnitType } from "./types.js";
 
 export const BOARD_WIDTH = 16;
 export const BOARD_HEIGHT = 12;
-export const MAX_TURNS = 30;
-export const RECRUIT_TURNS = 10;
-export const AP_PER_TURN = 5;
-export const ARMY_BUDGET = 100;
-export const ARMY_BUDGET_TOLERANCE = 10;
-export const RECRUIT_AP_BASE = 8;
-export const RECRUIT_AP_PER_TURN = 5;
+export const MAX_TURNS = 50;
+// Turns 1..BUY_TURNS you earn money income and may buy units; after that the
+// roster is locked and you only fight with what you have.
+export const BUY_TURNS = 10;
+export const AP_PER_TURN = 10;
+// Single currency: you start with STARTING_MONEY and gain
+// MONEY_INCOME_BASE + MONEY_INCOME_PER_TURN * turn each turn in the buy window.
+export const STARTING_MONEY = 10;
+export const MONEY_INCOME_BASE = 5;
+export const MONEY_INCOME_PER_TURN = 2;
 
 export const UNITS: Record<UnitType, UnitDef> = {
   knight: {
@@ -19,7 +22,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     moveRange: 3,
     actionAP: 1,
     cost: 30,
-    recruitAP: 5,
     initiative: 3,
     special: "damage_reduction_half",
     skills: [],
@@ -32,7 +34,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     moveRange: 2,
     actionAP: 1,
     cost: 20,
-    recruitAP: 3,
     initiative: 5,
     special: "pierce_one",
     skills: [],
@@ -45,7 +46,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     moveRange: 2,
     actionAP: 1,
     cost: 25,
-    recruitAP: 4,
     initiative: 6,
     special: null,
     skills: [],
@@ -58,7 +58,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     moveRange: 1,
     actionAP: 1,
     cost: 35,
-    recruitAP: 5,
     initiative: 4,
     special: null,
     skills: [
@@ -73,7 +72,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     moveRange: 2,
     actionAP: 1,
     cost: 25,
-    recruitAP: 4,
     initiative: 4,
     special: null,
     skills: [

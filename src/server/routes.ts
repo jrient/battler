@@ -376,23 +376,40 @@ app.post("/api/register", async (c) => {
   }, 201);
 });
 
-const DEMO_CODE = `// AgentClash demo strategy — prioritizes high-threat targets with skill usage
+const DEMO_CODE = `// AgentClash demo strategy — buys an army with money, then fights smart.
+// Turn 1 you start with no units: spend ctx.myMoney to buy, then operate
+// whatever is on the board with ctx.myAP.
 const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
 const MOVE = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
+const COST = { knight: 30, spear: 20, archer: 25, mage: 35, priest: 25 };
 const THREAT = { mage: 10, priest: 8, archer: 7, spear: 4, knight: 2 };
-const RECRUIT_AP = { mage: 5, archer: 4, priest: 4, knight: 5, spear: 3 };
+// Buy priority — cycles through this list while you can still afford something.
+const BUY_ORDER = ["spear", "archer", "knight", "mage", "priest"];
 
 export function decideTurn(ctx) {
   const actions = [];
+
+  // --- Spend money on new units (only works during the buy window) ---
+  let money = ctx.myMoney || 0;
+  const cheapest = Math.min.apply(null, BUY_ORDER.map(t => COST[t]));
+  let i = 0;
+  while (money >= cheapest) {
+    const type = BUY_ORDER[i % BUY_ORDER.length];
+    if (COST[type] <= money) {
+      actions.push({ action: "buy", unitType: type });
+      money -= COST[type];
+    }
+    i++;
+  }
+
+  // --- Operate units. Attacks and skills are free; only moving costs AP. ---
   let ap = ctx.myAP;
   if (!ctx.enemyUnits.length) return actions;
 
   const targets = [...ctx.enemyUnits].sort((a, b) => THREAT[b.type] - THREAT[a.type]);
 
   for (const u of ctx.myUnits) {
-    if (ap < 1) break;
-
-    if (u.type === "mage" && ap >= 3 && (u.cooldowns.fireball || 0) === 0) {
+    if (u.type === "mage" && (u.cooldowns.fireball || 0) === 0) {
       let bestPos = null, bestN = 0;
       for (const e of ctx.enemyUnits) {
         const n = ctx.enemyUnits.filter(o =>
@@ -402,17 +419,17 @@ export function decideTurn(ctx) {
       }
       if (bestN >= 2 && bestPos && mhd(u.pos, bestPos) <= RANGE.mage) {
         actions.push({ unitId: u.id, action: "skill", skill: "fireball", target: bestPos });
-        ap -= 3; continue;
+        continue;
       }
     }
 
-    if (u.type === "priest" && ap >= 2 && (u.cooldowns.heal || 0) === 0) {
+    if (u.type === "priest" && (u.cooldowns.heal || 0) === 0) {
       const w = ctx.myUnits.filter(a => a.id !== u.id && a.hp < a.maxHp * 0.6)
         .sort((a, b) => a.hp - b.hp);
       const t = w.find(a => mhd(u.pos, a.pos) <= RANGE.priest);
       if (t) {
         actions.push({ unitId: u.id, action: "skill", skill: "heal", target: t.id });
-        ap -= 2; continue;
+        continue;
       }
     }
 
@@ -420,21 +437,16 @@ export function decideTurn(ctx) {
     const hit = targets.find(e => mhd(u.pos, e.pos) <= range);
     if (hit) {
       actions.push({ unitId: u.id, action: "attack", targetUnitId: hit.id });
-      ap -= 1; continue;
+      continue;
     }
     const goal = targets[0];
-    if (goal) {
+    if (goal && ap >= 1) {
       const dest = step(u.pos, goal.pos, MOVE[u.type]);
       actions.push({ unitId: u.id, action: "move", target: dest });
       ap -= 1;
     }
   }
 
-  const rp = ctx.myRecruitAP || 0;
-  let rpLeft = rp;
-  for (const t of ["mage","archer","knight","spear","priest"]) {
-    while (rpLeft >= RECRUIT_AP[t]) { actions.push({ action: "recruit", unitType: t }); rpLeft -= RECRUIT_AP[t]; }
-  }
   return actions;
 }
 

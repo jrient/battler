@@ -77,7 +77,7 @@ export function loadAgent(code: string): SandboxedAgent {
         myArmy: ctx.myArmy,
         enemyArmy: ctx.enemyArmy,
         myAP: ctx.myAP,
-        myRecruitAP: ctx.myRecruitAP,
+        myMoney: ctx.myMoney,
         turn: ctx.turn,
         history: ctx.history,
       };
