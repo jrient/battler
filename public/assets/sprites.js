@@ -213,16 +213,16 @@
   // See public/assets/units/README.md.
   const IMG = {
     knight: {
-      A: "/assets/units/knight_a.png?v=7",
-      B: "/assets/units/knight_b.png?v=7",
+      A: "/assets/units/knight_a.png?v=8",
+      B: "/assets/units/knight_b.png?v=8",
     },
     mage: {
-      A: "/assets/units/mage_a.png?v=1",
-      B: "/assets/units/mage_b.png?v=1",
+      A: "/assets/units/mage_a.png?v=2",
+      B: "/assets/units/mage_b.png?v=2",
     },
     archer: {
-      A: "/assets/units/archer_a.png?v=1",
-      B: "/assets/units/archer_b.png?v=1",
+      A: "/assets/units/archer_a.png?v=2",
+      B: "/assets/units/archer_b.png?v=2",
     },
   };
 
