@@ -11,7 +11,7 @@ fallback sprites in `public/assets/sprites.js` (the `IMG` map).
 | Background    | Fully transparent (no checkerboard / matte)              |
 | Placement     | **Centered on the character's body axis** (head/torso), bottom-anchored |
 | Style         | Pixel art; rendered with `image-rendering: pixelated`    |
-| Fit at render | `background-size: contain`, `background-position: center bottom` |
+| Fit at render | `background-size: contain`, `background-position: center` |
 
 The fixed square canvas keeps every unit at a consistent visual scale. Center
 the figure on the **character's body**, not its bounding box: held weapons,

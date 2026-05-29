@@ -209,12 +209,12 @@
   // makes the two sides face each other.
   //
   // Canvas standard for raster unit art: 128×128 px (square, matching the
-  // square board cells), transparent background, figure bottom-centered.
+  // square board cells), transparent background, figure centered on body axis.
   // See public/assets/units/README.md.
   const IMG = {
     knight: {
-      A: "/assets/units/knight_a.png?v=5",
-      B: "/assets/units/knight_b.png?v=5",
+      A: "/assets/units/knight_a.png?v=6",
+      B: "/assets/units/knight_b.png?v=6",
     },
   };
 

@@ -163,7 +163,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   transition: transform 0.4s ease-out, opacity 0.4s;
   cursor: pointer;
   z-index: 10;
@@ -187,32 +187,17 @@ body {
   width: 76px;
   height: 76px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   transition: box-shadow 0.2s, filter 0.2s;
   position: relative;
 }
 
-/* Team-colored footprint under the figure (like the reference figurine bases). */
-.sprite::after {
-  content: "";
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 44px;
-  height: 11px;
-  border-radius: 50%;
-  z-index: -1;
-}
-.sprite.side-a::after { background: radial-gradient(rgba(106,159,213,0.65), rgba(106,159,213,0.05)); }
-.sprite.side-b::after { background: radial-gradient(rgba(213,106,106,0.65), rgba(213,106,106,0.05)); }
-
 .sprite-fig {
   width: 100%;
   height: 100%;
   background-repeat: no-repeat;
-  background-position: center bottom;
+  background-position: center;
   background-size: contain;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
