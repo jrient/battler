@@ -45,3 +45,5 @@ map.
 ## Current assets
 
 - `knight_a.png`, `knight_b.png` — knight (重甲骑士), 128×128, blue/red rim.
+- `mage_a.png`, `mage_b.png` — mage (法师), 128×128, blue/red rim.
+- `archer_a.png`, `archer_b.png` — archer (弓手), 128×128, blue/red rim.
