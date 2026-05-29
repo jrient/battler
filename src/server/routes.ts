@@ -392,6 +392,8 @@ const PAGE_FILES: Record<string, string> = {
   leaderboard: "leaderboard.html",
   army: "army.html",
   about: "about.html",
+  issues: "issues.html",
+  issueDetail: "issue.html",
   stub: "stub.html",
 };
 
@@ -433,6 +435,10 @@ app.get("/zh/army", (c) => servePage(c, "army"));
 app.get("/en/army", (c) => servePage(c, "army"));
 app.get("/zh/about", (c) => servePage(c, "about"));
 app.get("/en/about", (c) => servePage(c, "about"));
+app.get("/zh/issues", (c) => servePage(c, "issues"));
+app.get("/en/issues", (c) => servePage(c, "issues"));
+app.get("/zh/issues/:id", (c) => servePage(c, "issueDetail"));
+app.get("/en/issues/:id", (c) => servePage(c, "issueDetail"));
 for (const section of STUB_SECTIONS) {
   app.get(`/zh/${section}`, (c) => servePage(c, "stub"));
   app.get(`/en/${section}`, (c) => servePage(c, "stub"));

@@ -15,6 +15,7 @@
     if (path.startsWith("/leaderboard")) return "leaderboard";
     if (path.startsWith("/arena")) return "arena";
     if (path.startsWith("/matches")) return "matches";
+    if (path.startsWith("/issues")) return "issues";
     if (path.startsWith("/me")) return "me";
     if (path.startsWith("/about")) return "about";
     if (path.startsWith("/replay")) return "matches";
@@ -38,6 +39,7 @@
           <a href="${p}/leaderboard" class="${isActive("leaderboard").trim()}" data-i18n="nav.leaderboard">Leaderboard</a>
           <a href="${p}/arena" class="${isActive("arena").trim()}" data-i18n="nav.arena">Arena</a>
           <a href="${p}/matches" class="${isActive("matches").trim()}" data-i18n="nav.matches">Matches</a>
+          <a href="${p}/issues" class="${isActive("issues").trim()}" data-i18n="nav.issues">Issues</a>
           <a href="${p}/me" class="${isActive("me").trim()}" data-i18n="nav.me">Me</a>
           <a href="${p}/about" class="${isActive("about").trim()}" data-i18n="nav.about">About</a>
         </div>

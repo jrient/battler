@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .issues-wrap { max-width: 860px; margin: 0 auto; padding: 24px 20px; }
+    .issues-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+    .issues-head h1 { font-size: 22px; color: var(--text); margin: 0; }
+
+    .new-btn { padding: 8px 16px; background: var(--gold); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .new-btn:hover { filter: brightness(1.08); }
+    .signin-hint-inline { font-size: 13px; color: var(--text-dim); }
+    .signin-hint-inline a { color: var(--gold); text-decoration: none; }
+    .signin-hint-inline a:hover { text-decoration: underline; }
+
+    .new-form { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 18px; display: none; }
+    .new-form.open { display: block; }
+    .new-form input, .new-form textarea { width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; margin-bottom: 10px; }
+    .new-form textarea { min-height: 110px; resize: vertical; }
+    .new-form input:focus, .new-form textarea:focus { outline: none; border-color: var(--gold); }
+    .new-form-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+    .new-form .err { color: #f66; font-size: 12px; margin-right: auto; }
+    .cancel-btn { padding: 8px 14px; background: transparent; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .cancel-btn:hover { color: var(--text); }
+
+    .issue-list { display: flex; flex-direction: column; gap: 10px; }
+    .issue-card { display: block; text-decoration: none; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; transition: border-color 0.15s; }
+    .issue-card:hover { border-color: var(--gold); }
+    .issue-card-top { display: flex; align-items: center; gap: 8px; }
+    .issue-card-title { color: var(--text); font-size: 15px; font-weight: 600; margin: 0; flex: 1; word-break: break-word; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-badge.open { background: rgba(100,170,255,0.15); color: var(--blue-light); }
+    .status-badge.closed { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .issue-card-meta { margin-top: 8px; font-size: 12px; color: var(--text-dim); display: flex; gap: 12px; flex-wrap: wrap; }
+    .issue-card-meta .author { color: var(--blue-light); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .load-more-row { text-align: center; margin-top: 16px; }
+    .load-more-btn { padding: 8px 20px; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .load-more-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .load-more-btn:disabled { color: var(--text-dim); cursor: not-allowed; }
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="issues-wrap">
+    <div class="issues-head">
+      <h1 data-i18n="issues.title">讨论区</h1>
+      <div id="head-action"></div>
+    </div>
+
+    <form class="new-form" id="newForm">
+      <input type="text" id="newTitle" maxlength="120" data-i18n-attr="placeholder:issues.form.title_placeholder">
+      <textarea id="newBody" maxlength="5000" data-i18n-attr="placeholder:issues.form.body_placeholder"></textarea>
+      <div class="new-form-actions">
+        <span class="err" id="newErr"></span>
+        <button type="button" class="cancel-btn" id="cancelBtn" data-i18n="issues.form.cancel">取消</button>
+        <button type="submit" class="new-btn" id="submitBtn" data-i18n="issues.form.submit">发布</button>
+      </div>
+    </form>
+
+    <div id="content">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const PAGE_SIZE = 50;
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const content = document.getElementById("content");
+      const headAction = document.getElementById("head-action");
+      const form = document.getElementById("newForm");
+      let offset = 0;
+      let rows = [];
+      let exhausted = false;
+      let signedIn = false;
+
+      try {
+        const who = await api.get("/api/me/whoami");
+        signedIn = !!who.signedIn;
+      } catch { /* keep signedIn=false */ }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+      function fmtTime(iso) {
+        try {
+          const d = new Date(iso);
+          const today = new Date();
+          const sameDay = d.toDateString() === today.toDateString();
+          return sameDay
+            ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        } catch { return iso; }
+      }
+
+      // Header action: "New issue" button (signed in) or sign-in hint.
+      if (signedIn) {
+        headAction.innerHTML = `<button class="new-btn" id="newBtn">${t("issues.new")}</button>`;
+        document.getElementById("newBtn").addEventListener("click", () => {
+          form.classList.toggle("open");
+          if (form.classList.contains("open")) document.getElementById("newTitle").focus();
+        });
+      } else {
+        headAction.innerHTML = `<span class="signin-hint-inline">${t("issues.signin_hint")} · <a href="/auth/github">${t("nav.login")}</a></span>`;
+      }
+
+      document.getElementById("cancelBtn").addEventListener("click", () => {
+        form.classList.remove("open");
+        document.getElementById("newErr").textContent = "";
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const title = document.getElementById("newTitle").value.trim();
+        const body = document.getElementById("newBody").value.trim();
+        const errEl = document.getElementById("newErr");
+        const submitBtn = document.getElementById("submitBtn");
+        errEl.textContent = "";
+        if (title.length < 3 || body.length < 1) { errEl.textContent = t("issues.form.error"); return; }
+        submitBtn.disabled = true;
+        try {
+          const created = await api.post("/api/issues", { title, body });
+          location.assign(`/${lang}/issues/${created.id}`);
+        } catch (err) {
+          errEl.textContent = t("issues.form.error");
+          submitBtn.disabled = false;
+        }
+      });
+
+      function renderCard(i) {
+        const replies = t("issues.replies", { count: i.commentCount });
+        const statusLabel = t(`issues.status.${i.status}`);
+        return `
+          <a class="issue-card" href="/${lang}/issues/${encodeURIComponent(i.id)}">
+            <div class="issue-card-top">
+              <h2 class="issue-card-title">${escapeHtml(i.title)}</h2>
+              <span class="status-badge ${i.status}">${statusLabel}</span>
+            </div>
+            <div class="issue-card-meta">
+              <span class="author">${escapeHtml(i.author)}</span>
+              <span>${escapeHtml(fmtTime(i.updatedAt))}</span>
+              <span>${replies}</span>
+            </div>
+          </a>`;
+      }
+
+      function renderList() {
+        if (rows.length === 0) {
+          content.innerHTML = `<div class="empty-state">${t("issues.empty")}</div>`;
+          return;
+        }
+        content.innerHTML = `
+          <div class="issue-list">${rows.map(renderCard).join("")}</div>
+          <div class="load-more-row">
+            <button class="load-more-btn" id="loadMoreBtn" ${exhausted ? "disabled" : ""}>
+              ${exhausted ? t("matches.no_more") : t("matches.load_more")}
+            </button>
+          </div>`;
+        const btn = document.getElementById("loadMoreBtn");
+        if (btn && !exhausted) btn.addEventListener("click", () => loadPage(false));
+      }
+
+      async function loadPage(reset) {
+        if (reset) { rows = []; offset = 0; exhausted = false; }
+        if (reset) content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        try {
+          const data = await api.get(`/api/issues?limit=${PAGE_SIZE}&offset=${offset}`);
+          const batch = data.issues || [];
+          if (batch.length < PAGE_SIZE) exhausted = true;
+          rows = rows.concat(batch);
+          offset += batch.length;
+          renderList();
+        } catch (err) {
+          content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      loadPage(true);
+    })();
+  </script>
+</body>
+</html>

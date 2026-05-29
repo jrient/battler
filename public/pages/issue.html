@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .issue-wrap { max-width: 760px; margin: 0 auto; padding: 24px 20px; }
+    .back-link { display: inline-block; margin-bottom: 16px; color: var(--text-dim); text-decoration: none; font-size: 13px; }
+    .back-link:hover { color: var(--gold); }
+
+    .issue-main { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+    .issue-main h1 { font-size: 20px; color: var(--text); margin: 0 0 10px; word-break: break-word; }
+    .issue-meta { font-size: 12px; color: var(--text-dim); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .issue-meta .author { color: var(--blue-light); }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-badge.open { background: rgba(100,170,255,0.15); color: var(--blue-light); }
+    .status-badge.closed { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .issue-body { color: var(--text); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+
+    .comments-title { font-size: 15px; color: var(--text); margin: 0 0 14px; font-weight: 600; }
+    .comment-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .comment { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+    .comment-head { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; display: flex; gap: 10px; }
+    .comment-head .author { color: var(--blue-light); }
+    .comment-body { color: var(--text); font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .no-comments { color: var(--text-dim); font-size: 13px; padding: 8px 0 16px; }
+
+    .comment-form textarea { width: 100%; box-sizing: border-box; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 10px 12px; font-size: 14px; font-family: inherit; min-height: 80px; resize: vertical; margin-bottom: 10px; }
+    .comment-form textarea:focus { outline: none; border-color: var(--gold); }
+    .comment-form-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+    .comment-form .err { color: #f66; font-size: 12px; margin-right: auto; }
+    .reply-btn { padding: 8px 16px; background: var(--gold); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .reply-btn:hover { filter: brightness(1.08); }
+    .signin-hint { color: var(--text-dim); font-size: 13px; }
+    .signin-hint a { color: var(--gold); text-decoration: none; }
+    .signin-hint a:hover { text-decoration: underline; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="issue-wrap">
+    <a class="back-link" id="backLink" href="#" data-i18n="issue.back">← 返回讨论区</a>
+    <div id="content">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const content = document.getElementById("content");
+      document.getElementById("backLink").href = `/${lang}/issues`;
+
+      const m = location.pathname.match(/\/issues\/([^/?#]+)/);
+      const issueId = m ? decodeURIComponent(m[1]) : "";
+
+      let signedIn = false;
+      try {
+        const who = await api.get("/api/me/whoami");
+        signedIn = !!who.signedIn;
+      } catch { /* keep signedIn=false */ }
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+      function fmtTime(iso) {
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        } catch { return iso; }
+      }
+
+      function commentHtml(cm) {
+        return `
+          <div class="comment">
+            <div class="comment-head">
+              <span class="author">${escapeHtml(cm.author)}</span>
+              <span>${escapeHtml(fmtTime(cm.createdAt))}</span>
+            </div>
+            <div class="comment-body">${escapeHtml(cm.body)}</div>
+          </div>`;
+      }
+
+      function render(issue, comments) {
+        const statusLabel = t(`issues.status.${issue.status}`);
+        const commentsHtml = comments.length
+          ? `<div class="comment-list">${comments.map(commentHtml).join("")}</div>`
+          : `<div class="no-comments">${t("issue.no_comments")}</div>`;
+        const formHtml = signedIn
+          ? `<form class="comment-form" id="commentForm">
+               <textarea id="commentBody" maxlength="5000" data-i18n-attr="placeholder:issue.comment_placeholder"></textarea>
+               <div class="comment-form-actions">
+                 <span class="err" id="commentErr"></span>
+                 <button type="submit" class="reply-btn" id="replyBtn">${t("issue.comment_submit")}</button>
+               </div>
+             </form>`
+          : `<div class="signin-hint">${t("issue.comment_signin_hint")} · <a href="/auth/github">${t("nav.login")}</a></div>`;
+
+        content.innerHTML = `
+          <article class="issue-main">
+            <h1>${escapeHtml(issue.title)}</h1>
+            <div class="issue-meta">
+              <span class="author">${escapeHtml(issue.author)}</span>
+              <span>${escapeHtml(fmtTime(issue.createdAt))}</span>
+              <span class="status-badge ${issue.status}">${statusLabel}</span>
+            </div>
+            <div class="issue-body">${escapeHtml(issue.body)}</div>
+          </article>
+          <h2 class="comments-title">${t("issue.comments_title")} (${issue.commentCount})</h2>
+          <div id="commentsMount">${commentsHtml}</div>
+          ${formHtml}`;
+
+        if (window.i18n && window.i18n.applyDom) window.i18n.applyDom(content);
+
+        const form = document.getElementById("commentForm");
+        if (form) {
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const bodyEl = document.getElementById("commentBody");
+            const errEl = document.getElementById("commentErr");
+            const replyBtn = document.getElementById("replyBtn");
+            const body = bodyEl.value.trim();
+            errEl.textContent = "";
+            if (body.length < 1) { errEl.textContent = t("issue.comment_error"); return; }
+            replyBtn.disabled = true;
+            try {
+              await api.post(`/api/issues/${encodeURIComponent(issueId)}/comments`, { body });
+              load();
+            } catch (err) {
+              errEl.textContent = t("issue.comment_error");
+              replyBtn.disabled = false;
+            }
+          });
+        }
+      }
+
+      async function load() {
+        content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        try {
+          const data = await api.get(`/api/issues/${encodeURIComponent(issueId)}`);
+          render(data.issue, data.comments || []);
+        } catch (err) {
+          const msg = err.status === 404 ? t("issue.not_found") : `${t("common.error")}: ${escapeHtml(err.message)}`;
+          content.innerHTML = `<div class="empty-state">${msg}</div>`;
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>
