@@ -9,15 +9,22 @@
   // Shaded palette. Team colors (1 = highlight, 2 = base, 3 = shadow) are
   // substituted per side at render time.
   const PAL = {
-    o: "#15151f", O: "#0b0b12",
-    a: "#f6cda3", b: "#d39a6f", c: "#ffe6c8",       // skin
-    h: "#5a3a20", H: "#3c2613", j: "#7e5733",        // hair
-    m: "#e3e8f0", n: "#9aa2b4", N: "#5b6273",        // metal
+    o: "#2a2433", O: "#141019",                      // soft outline / deep
+    a: "#fbd6ad", b: "#e3ad81", c: "#fff0db",        // skin
+    h: "#7a4a26", H: "#583113", j: "#9c6a38",        // brown hair
+    u: "#3f5f93", U: "#2a3f63", "6": "#6b8bc0",      // blue hair
+    t: "#4f7a3f", T: "#36562b", "7": "#6fa05a",      // green hair
+    v: "#8a4f9f", V: "#5f3673", "8": "#ab73c0",      // purple hair
+    z: "#dde2ee", Z: "#a9b0c2", "9": "#ffffff",      // silver hair
+    r: "#dd7a38", R: "#a85524", "5": "#f0a05a",      // ginger hair
+    m: "#e7ecf4", n: "#9aa2b4", N: "#5b6273",        // metal
     w: "#9c6b3a", W: "#6e4a26",                      // wood
-    g: "#ffd34d", G: "#bd8c1c",                      // gold
-    e: "#f3f5fa", E: "#ccd3e0",                      // white robe
-    k: "#2a2e3a", K: "#181b24",                      // dark cloth
-    y: "#9be8ff", Y: "#3fb6e8",                      // magic
+    g: "#ffd54d", G: "#bd8c1c",                      // gold
+    e: "#f5f7fc", E: "#cdd4e2",                      // white cloth
+    k: "#33384a", K: "#1c2030",                      // dark cloth
+    y: "#aef0ff", Y: "#46b6e8",                      // magic
+    i: "#6f9bd6", I: "#3f5f93",                      // eye iris
+    p: "#ff9ec4", P: "#e06a9b",                      // blush / pink accent
   };
   const TEAM = {
     a: { "1": "#8fbdf2", "2": "#4f86c6", "3": "#2f5586" },
@@ -35,6 +42,41 @@
         if (g[j] && i >= 0 && i < g[0].length && j >= 0) g[j][i] = ch;
   }
   function px(g, x, y, ch) { if (g[y] && x >= 0 && x < g[0].length) g[y][x] = ch; }
+  function ell(g, cx, cy, rx, ry, ch) {
+    const H = g.length, W = g[0].length;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const dx = (x - cx) / rx, dy = (y - cy) / ry;
+        if (dx * dx + dy * dy <= 1) g[y][x] = ch;
+      }
+  }
+  // Big anime eye: 3 wide x 4 tall at (ex,ey); white + iris + pupil + highlight.
+  function eye(g, ex, ey, iris) {
+    rect(g, ex, ey, 3, 4, "e");
+    rect(g, ex, ey + 2, 3, 2, iris);
+    px(g, ex + 1, ey + 2, "O"); px(g, ex + 1, ey + 3, "O");
+    px(g, ex + 2, ey + 1, "c");
+  }
+  // Cute chibi base: big round head, big eyes, small team-clothed body.
+  // hb/hs/hh = hair base/shadow/highlight palette codes.
+  function chibiBase(hb, hs, hh) {
+    const g = makeGrid(24, 28);
+    ell(g, 11.5, 7.5, 7, 7, hb);
+    ell(g, 11.5, 9, 5.6, 5.6, "a");
+    ell(g, 11.5, 5.5, 6.5, 4, hb);
+    rect(g, 7, 3, 4, 1, hh); rect(g, 13, 3, 4, 1, hh);
+    rect(g, 7, 6, 10, 1, hb); px(g, 8, 7, hb); px(g, 15, 7, hb);
+    px(g, 6, 9, hs); px(g, 17, 9, hs); px(g, 6, 10, hs); px(g, 17, 10, hs);
+    eye(g, 8, 8, "i"); eye(g, 13, 8, "i");
+    px(g, 9, 12, "b"); rect(g, 11, 13, 2, 1, "b");
+    px(g, 7, 11, "p"); px(g, 16, 11, "p");
+    rect(g, 8, 15, 8, 7, "2");
+    rect(g, 8, 15, 8, 1, "1");
+    rect(g, 8, 20, 8, 2, "3");
+    rect(g, 9, 22, 2, 4, "k"); rect(g, 13, 22, 2, 4, "k");
+    rect(g, 9, 26, 3, 1, "K"); rect(g, 13, 26, 3, 1, "K");
+    return g;
+  }
 
   // Add an outline code 'o' to every empty cell 8-adjacent to a filled,
   // non-outline cell. This gives clean silhouettes without hand-drawing borders.
@@ -61,44 +103,25 @@
   // ---- Detailed, hand-authored units (grid of codes, facing right) ----
   const DETAIL = {
     knight() {
-      const W = 22, H = 26, g = makeGrid(W, H);
-      // hair / head
-      rect(g, 6, 2, 9, 4, "h");
-      rect(g, 7, 2, 5, 1, "j");
-      rect(g, 6, 5, 9, 6, "a");
-      rect(g, 6, 5, 9, 1, "h");
-      px(g, 7, 5, "h"); px(g, 13, 5, "h");
-      px(g, 8, 7, "O"); px(g, 12, 7, "O");      // eyes
-      px(g, 7, 8, "c");                          // cheek highlight
-      rect(g, 7, 9, 7, 1, "b");                  // lower-face shadow
-      rect(g, 8, 11, 5, 1, "b");                 // neck
-      // torso + armor
-      rect(g, 5, 12, 11, 6, "2");
-      rect(g, 5, 12, 3, 2, "1");                 // pauldrons
-      rect(g, 13, 12, 3, 2, "1");
-      rect(g, 5, 15, 11, 3, "3");                // lower torso shade
-      rect(g, 9, 13, 3, 3, "g");                 // chest emblem
-      px(g, 10, 14, "G");
-      rect(g, 6, 18, 9, 1, "3");                 // belt
-      px(g, 10, 18, "g");                        // buckle
-      rect(g, 5, 13, 1, 4, "2"); px(g, 5, 17, "a");   // left arm + hand
-      rect(g, 16, 12, 1, 3, "2");                // right upper arm (raised)
-      // legs + boots
-      rect(g, 7, 19, 3, 5, "3"); rect(g, 12, 19, 3, 5, "3");
-      rect(g, 7, 23, 3, 1, "K"); rect(g, 12, 23, 3, 1, "K");
-      // shield (left, front)
-      rect(g, 1, 13, 4, 7, "2");
-      rect(g, 1, 13, 4, 1, "g");                 // top trim
-      rect(g, 1, 19, 4, 1, "G");                 // bottom shade
-      rect(g, 2, 15, 2, 2, "m"); px(g, 2, 16, "n"); // boss
-      // sword (raised, right hand)
-      rect(g, 16, 2, 2, 11, "m");
-      rect(g, 17, 2, 1, 11, "n");                // shaded edge
-      px(g, 16, 1, "m");                         // tip
-      rect(g, 15, 13, 4, 1, "g");                // crossguard
-      px(g, 16, 14, "W"); px(g, 17, 14, "W");    // grip
-      rect(g, 16, 15, 2, 1, "a");                // hand
-      return { w: W, h: H, g };
+      const g = chibiBase("h", "H", "j");        // brown hair
+      // gold circlet
+      rect(g, 7, 5, 10, 1, "g"); px(g, 11, 5, "G");
+      // armor details
+      rect(g, 8, 15, 2, 2, "1"); rect(g, 14, 15, 2, 2, "1"); // pauldrons
+      rect(g, 11, 17, 2, 2, "g"); px(g, 12, 18, "G");        // chest emblem
+      rect(g, 8, 21, 8, 1, "3"); px(g, 11, 21, "g");          // belt + buckle
+      // left arm + kite shield
+      rect(g, 7, 16, 1, 4, "2"); px(g, 7, 20, "a");
+      rect(g, 3, 15, 4, 6, "2");
+      rect(g, 3, 15, 4, 1, "g"); rect(g, 3, 20, 4, 1, "G");
+      rect(g, 4, 17, 2, 2, "m"); px(g, 4, 18, "n");
+      // right arm + raised sword
+      rect(g, 16, 16, 1, 3, "2"); px(g, 17, 18, "a");
+      rect(g, 18, 5, 2, 13, "m"); rect(g, 19, 5, 1, 13, "n");
+      px(g, 18, 4, "m");
+      rect(g, 17, 18, 4, 1, "g");
+      px(g, 18, 19, "W");
+      return { w: 24, h: 28, g };
     },
   };
 
