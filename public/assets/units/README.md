@@ -9,14 +9,17 @@ fallback sprites in `public/assets/sprites.js` (the `IMG` map).
 | ------------- | -------------------------------------------------------- |
 | Size          | **128 × 128 px** (square, to match the square board cells) |
 | Background    | Fully transparent (no checkerboard / matte)              |
-| Placement     | Figure **bottom-centered** (feet on the bottom edge)     |
+| Placement     | Figure **bottom-anchored, fills the full width** (minimal side margin) |
 | Style         | Pixel art; rendered with `image-rendering: pixelated`    |
 | Fit at render | `background-size: contain`, `background-position: center bottom` |
 
-The fixed canvas + bottom-centered placement is what keeps every unit the same
-visual scale: the renderer contain-fits the whole canvas into a square sprite
-box, so a unit's apparent size is purely a function of how much of the canvas it
-fills. Keep the figure's footprint consistent across unit types.
+The fixed square canvas keeps every unit at a consistent visual scale. Because
+the renderer contain-fits the whole canvas into the sprite box, empty canvas
+space shrinks the figure — so the figure should **fill the canvas width** and
+sit on the bottom edge, leaving only a thin rim margin. (A wide, short figure
+will still leave vertical headroom; that is expected.) On the board the sprite
+box is larger than a cell (`.sprite` in `replay.css`), so figures stand on the
+tile and overflow upward, like a tactics-RPG.
 
 ## Per-team variants
 

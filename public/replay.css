@@ -163,7 +163,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
   transition: transform 0.4s ease-out, opacity 0.4s;
   cursor: pointer;
   z-index: 10;
@@ -184,8 +184,8 @@ body {
 }
 
 .sprite {
-  width: 42px;
-  height: 42px;
+  width: 76px;
+  height: 76px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -200,8 +200,8 @@ body {
   bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 26px;
-  height: 8px;
+  width: 44px;
+  height: 11px;
   border-radius: 50%;
   z-index: -1;
 }

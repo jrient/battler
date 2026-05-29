@@ -213,8 +213,8 @@
   // See public/assets/units/README.md.
   const IMG = {
     knight: {
-      A: "/assets/units/knight_a.png?v=3",
-      B: "/assets/units/knight_b.png?v=3",
+      A: "/assets/units/knight_a.png?v=4",
+      B: "/assets/units/knight_b.png?v=4",
     },
   };
 
