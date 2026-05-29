@@ -202,8 +202,16 @@
     return cv.toDataURL();
   }
 
+  // Raster image assets (user-provided art). Take precedence over code-drawn
+  // sprites. Shared by both teams for now — team is conveyed by the board's
+  // footprint color and the side-B horizontal flip.
+  const IMG = {
+    knight: "/assets/units/knight.png?v=1",
+  };
+
   const cache = {};
   window.unitSpriteURL = function (type, side) {
+    if (IMG[type]) return IMG[type];
     const s = (side || "A").toLowerCase();
     const key = type + "_" + s;
     if (cache[key]) return cache[key];
