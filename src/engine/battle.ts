@@ -8,6 +8,7 @@ import {
   STARTING_MONEY,
   MONEY_INCOME_PER_TURN,
   SPLASH_RADIUS,
+  STALE_TURNS_LIMIT,
 } from "./units.js";
 import { makeRng } from "./rng.js";
 import type {
@@ -70,6 +71,13 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
 
   let winner: Side | "draw" | null = null;
   let turnIdx = 0;
+
+  // Stalemate detection: if the board fingerprint (every living unit's id, hp,
+  // and position) is identical for STALE_TURNS_LIMIT consecutive turns after the
+  // buy window, neither side can make progress (e.g. units permanently blocked
+  // from closing distance), so we end early instead of replaying frozen turns.
+  let lastSignature = "";
+  let staleTurns = 0;
 
   let moneyA = STARTING_MONEY;
   let moneyB = STARTING_MONEY;
@@ -172,6 +180,28 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       winner = "A";
       allEvents.push(`[END] A wins by total elimination at turn ${turnIdx}`);
       break;
+    }
+
+    // No-progress / stalemate detection. Only meaningful after the buy window,
+    // since during it the roster (and thus the signature) is expected to change.
+    const signature = boardSignature(units);
+    if (turnIdx > BUY_TURNS && signature === lastSignature) {
+      staleTurns++;
+      if (staleTurns >= STALE_TURNS_LIMIT) {
+        const strengthA = computeRemainingStrength(units, "A");
+        const strengthB = computeRemainingStrength(units, "B");
+        if (strengthA > strengthB) winner = "A";
+        else if (strengthB > strengthA) winner = "B";
+        else winner = "draw";
+        const verdict = winner === "draw" ? "draw" : `${winner} wins`;
+        allEvents.push(
+          `[END] ${verdict} by stalemate at turn ${turnIdx} — no progress for ${STALE_TURNS_LIMIT} turns (strength ${strengthA} vs ${strengthB})`,
+        );
+        break;
+      }
+    } else {
+      staleTurns = 0;
+      lastSignature = signature;
     }
   }
 
@@ -547,6 +577,16 @@ function snapshotUnits(units: Unit[]): UnitSnapshot[] {
     defending: u.defending,
     cooldowns: { ...u.cooldowns },
   }));
+}
+
+// Compact fingerprint of the living board state. Two turns with the same
+// signature mean nothing changed: no HP shifts, no successful moves, no buys.
+function boardSignature(units: Unit[]): string {
+  return units
+    .filter((u) => u.hp > 0)
+    .map((u) => `${u.id}:${u.hp}:${u.pos[0]},${u.pos[1]}`)
+    .sort()
+    .join("|");
 }
 
 function manhattan(a: Position, b: Position): number {

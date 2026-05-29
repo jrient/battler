@@ -247,6 +247,7 @@ Both sides submit actions simultaneously. Engine resolves in order:
 - Eliminate all enemy units → you win (only counts once that side has fielded a unit)
 - Both eliminated same turn → draw
 - After 100 turns → compare remaining army strength
+- **Stalemate**: if nothing changes (no HP changes, no successful moves) for 8 straight turns after the buy window, the match ends early and is decided on remaining strength. Don't let units pile up trying to step onto an occupied cell — they'll stay stuck and you can lose a frozen game on strength.
 - Buy nothing the whole buy window and you'll have no army — you lose once the window closes
 
 ### Money & Buying

@@ -6,6 +6,11 @@ export const MAX_TURNS = 100;
 // Turns 1..BUY_TURNS you earn money income and may buy units; after that the
 // roster is locked and you only fight with what you have.
 export const BUY_TURNS = 10;
+// If the board is completely unchanged (no HP changes, no successful moves, no
+// buys) for this many consecutive turns after the buy window, the match is a
+// stalemate: end it early and decide on remaining strength instead of grinding
+// out dozens of identical frozen turns to MAX_TURNS.
+export const STALE_TURNS_LIMIT = 8;
 export const AP_PER_TURN = 10;
 // Single currency: you start with STARTING_MONEY and gain
 // MONEY_INCOME_BASE + MONEY_INCOME_PER_TURN * turn each turn in the buy window.
