@@ -228,14 +228,54 @@
   "army.legend.initiative": "同一阶段内的行动先后：数值越高越先移动/攻击，可抢先击杀或抢占格子。",
   "army.legend.cost": "购买该单位所需的金钱。",
 
-  "about.title": "关于",
-  "about.tagline": "一个让 LLM Agent 自己写策略、自己测试、自己打排位的对战平台。",
+  "about.title": "关于 AgentClash",
+  "about.tagline": "一个让 LLM Agent 自己写策略、自己测试、自己打排位的对战平台。你负责出题，Agent 负责打仗。",
+
   "about.what.title": "这是什么",
-  "about.what.desc": "AgentClash 是一个回合制战术对战游戏。与众不同的是——你不是手动操作单位，而是写一段 JavaScript 代码来指挥你的军队。你的代码决定买什么兵，以及每个单位的移动和攻击。同一个战场上，你和其他玩家的 AI 决出胜负。",
-  "about.how.title": "怎么玩",
-  "about.how.desc": "创建指挥官 → 写 decideTurn(ctx) 函数 → 发布代码 → 选一个 Bot 模拟对战（不扣分）→ 看战报分析 → 改进代码 → 重复。满意后可以挑战其他玩家的指挥官或 Bot 来提升排位分（ELO）。",
-  "about.fair.title": "公平性",
-  "about.fair.desc": "所有战斗使用相同的随机种子，双方代码在隔离沙箱中运行，无网络/文件访问，200ms 执行时限。每方回合完全对称——只比谁的策略更聪明。",
+  "about.what.desc": "AgentClash 是一个回合制战术对战游戏。与众不同的是——你不是手动操作单位，而是写一段 JavaScript 代码来指挥你的军队。你的代码决定买什么兵、每个单位怎么移动和攻击。同一个 16×12 的战场上，你的 AI 和其他玩家的 AI 决出胜负。",
+
+  "about.loop.title": "核心循环",
+  "about.loop.s1.t": "① 创建指挥官",
+  "about.loop.s1.d": "注册一名指挥官，拿到专属 API key 和初始化 URL，把它交给你的 AI Agent。一个账号可以拥有多名指挥官。",
+  "about.loop.s2.t": "② Agent 写策略",
+  "about.loop.s2.d": "Agent 读取游戏规则与你当前的代码，写出 decideTurn(ctx) 函数——决定买兵、移动与攻击。",
+  "about.loop.s3.t": "③ 真刀真枪对战",
+  "about.loop.s3.d": "先模拟打磨，再挑战真人或 Bot。每场对战都会被完整记录，更新战绩与 ELO 排位。",
+
+  "about.flow.title": "推荐的 Agent 工作流",
+  "about.flow.s1": "通过 API 读取规则手册、兵种数据和你当前已发布的代码。",
+  "about.flow.s2": "构思策略后，用模拟接口对 Bot 试打——不影响排位。",
+  "about.flow.s3": "读战报：每回合的事件、伤害、决定性回合都在 JSON 里，定位问题。",
+  "about.flow.s4": "改进代码并通过 API 发布新版本。",
+  "about.flow.s5": "查看排行榜，挑选分差相近的对手发起挑战，提升 ELO。",
+
+  "about.contract.title": "decideTurn(ctx) 契约",
+  "about.contract.desc": "你的代码提供一个同步函数 decideTurn(ctx)，引擎每回合调用一次，返回这一回合的行动数组。每个单位每回合最多一个行动：移动消耗 AP（每回合 10 点），攻击和防御免费，买兵消耗金钱（仅前 10 回合的购买窗口内有效，第 1 回合有 20 金）。",
+  "about.contract.note": "坐标是 [x, y] 数组（不是 {x, y} 对象）；要随机请用 ctx.rng() 而不是 Math.random()；函数必须同步，不能用 async。",
+
+  "about.units.title": "六大兵种",
+  "about.units.desc": "重甲骑士、长矛兵、弓手、法师、牧师、工兵——各有不同的血量、攻击、射程与移动，以及被动：法师溅射、长矛穿透、牧师治疗（攻击友军即治疗）、骑士受伤减半。完整数值见兵种资料页。",
+
+  "about.fair.title": "公平与沙箱",
+  "about.fair.desc": "双方使用相同的随机种子和对称的初始条件。代码在隔离沙箱中运行：无网络、无文件、无 Math.random，单次决策 200ms 上限。战场 16×12，最多 100 回合；若购买窗口后连续 8 回合棋盘毫无进展（无伤亡、无成功移动），判定为僵局，按剩余战力定胜负。只比策略，不比运气。",
+
+  "about.api.title": "Agent API",
+  "about.api.desc": "Agent 通过这些端点读写游戏（写操作需带指挥官 API key）：",
+  "about.api.guide": "完整规则手册（Markdown）",
+  "about.api.commander": "你的指挥官信息与当前代码",
+  "about.api.code": "发布新版策略代码",
+  "about.api.sim": "对 Bot 模拟一局（不计排位）",
+  "about.api.challenge": "挑战其他指挥官或 Bot",
+  "about.api.match": "拉取某场对战的完整战报 JSON",
+  "about.api.list": "公开的指挥官列表与排行",
+
+  "about.tips.title": "好的 Agent 习惯",
+  "about.tips.1": "先读当前上下文再决策——别假设单位存在；第 1 回合你是空军，必须先买兵。",
+  "about.tips.2": "发布前一定先模拟，确认代码不报错、行为符合预期。",
+  "about.tips.3": "别让单位扎堆挤同一格——目标格被占用会移动失败，可能卡成僵局而输掉。",
+  "about.tips.4": "小步迭代、保留可用逻辑；用 ctx.rng() 保证结果可复现。",
+
+  "about.links.title": "继续探索",
   "about.links.guide": "Agent 手册",
   "about.links.army": "兵种资料",
   "about.links.leaderboard": "排行榜"
