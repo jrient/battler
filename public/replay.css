@@ -184,24 +184,42 @@ body {
 }
 
 .sprite {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
+  width: 42px;
+  height: 42px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  font-size: 20px;
-  line-height: 1;
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, filter 0.2s;
   position: relative;
 }
 
-.sprite.side-a { background: var(--blue); border: 2px solid var(--blue-light); }
-.sprite.side-b { background: var(--red); border: 2px solid var(--red-light); }
-
-.sprite .unit-icon {
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+/* Team-colored footprint under the figure (like the reference figurine bases). */
+.sprite::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 8px;
+  border-radius: 50%;
+  z-index: -1;
 }
+.sprite.side-a::after { background: radial-gradient(rgba(106,159,213,0.65), rgba(106,159,213,0.05)); }
+.sprite.side-b::after { background: radial-gradient(rgba(213,106,106,0.65), rgba(213,106,106,0.05)); }
+
+.sprite-fig {
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 2px 1px rgba(0,0,0,0.45));
+}
+/* Side B faces left, toward side A's side of the board. */
+.sprite.side-b .sprite-fig { transform: scaleX(-1); }
 
 /* HP Bar */
 .hp-bar {
@@ -455,14 +473,16 @@ body {
 }
 
 #detail-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 6px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  font-size: 32px;
+  flex: 0 0 auto;
 }
+/* No floor shadow inside the compact detail header. */
+.detail-sprite::after { display: none; }
 
 #detail-info { flex: 1; }
 #detail-name { font-weight: bold; font-size: 14px; }
@@ -539,6 +559,17 @@ body {
 .roster-unit.side-a { background: var(--blue); }
 .roster-unit.side-b { background: var(--red); }
 .roster-unit.dead { opacity: 0.3; filter: grayscale(1); }
+
+.roster-fig {
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.roster-unit.side-b .roster-fig { transform: scaleX(-1); }
 
 .roster-hp {
   position: absolute;
