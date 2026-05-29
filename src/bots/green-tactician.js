@@ -1,10 +1,10 @@
 // hermes: threat-priority tactical bot. Archer-heavy DPS with spear screen.
 // Collision-aware movement, focus-fire low-HP, compact for 16x12 board.
 
-const COST  = { knight:5, spear:3, archer:3, mage:4, priest:4 };
-const RANGE = { knight:1, spear:2, archer:4, mage:3, priest:2 };
-const MOVE  = { knight:2, spear:3, archer:2, mage:1, priest:1 };
-const PRIORITY  = { priest:1, mage:2, archer:3, spear:4, knight:5 };
+const COST  = { knight:5, spear:3, archer:3, mage:4, priest:4, engineer:2 };
+const RANGE = { knight:1, spear:2, archer:4, mage:3, priest:2, engineer:1 };
+const MOVE  = { knight:2, spear:3, archer:2, mage:1, priest:1, engineer:2 };
+const PRIORITY  = { priest:1, mage:2, archer:3, spear:4, engineer:5, knight:6 };
 
 function dist(a, b) { return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
 
@@ -61,31 +61,20 @@ export function decideTurn(ctx) {
   const byPrio = [...ctx.enemyUnits].sort((a,b) => PRIORITY[a.type]-PRIORITY[b.type]);
   let ap = ctx.myAP;
 
-  // Mage fireball on 3+ clusters (free, no AP)
+  // Priest heals the most wounded ally by attacking it (heal is a passive)
+  const healed = new Set();
   for (const u of sorted) {
-    if (u.type !== "mage" || (u.cooldowns.fireball||0) > 0) continue;
-    let best = null, bestN = 0;
-    for (const e of ctx.enemyUnits) {
-      const n = ctx.enemyUnits.filter(o => Math.max(Math.abs(o.pos[0]-e.pos[0]), Math.abs(o.pos[1]-e.pos[1])) <= 1).length;
-      if (n > bestN) { bestN = n; best = e.pos; }
-    }
-    if (bestN >= 3 && best && dist(u.pos, best) <= RANGE.mage) {
-      actions.push({ unitId:u.id, action:"skill", skill:"fireball", target:best });
-    }
-  }
-
-  // Priest heal (free, no AP)
-  for (const u of sorted) {
-    if (u.type !== "priest" || (u.cooldowns.heal||0) > 0) continue;
+    if (u.type !== "priest") continue;
     const w = ctx.myUnits
       .filter(a => a.id !== u.id && a.hp < a.maxHp * 0.5)
       .sort((a,b) => a.hp - b.hp);
     const t = w.find(a => dist(u.pos, a.pos) <= RANGE.priest);
-    if (t) { actions.push({ unitId:u.id, action:"skill", skill:"heal", target:t.id }); }
+    if (t) { actions.push({ unitId:u.id, action:"attack", targetUnitId:t.id }); healed.add(u.id); }
   }
 
-  // Operate: attack (free), collision-aware move
+  // Operate: attack (free), collision-aware move. Mage splash is automatic.
   for (const u of sorted) {
+    if (healed.has(u.id)) continue;
     const inRange = ctx.enemyUnits.filter(e => dist(u.pos, e.pos) <= RANGE[u.type]);
     if (inRange.length > 0) {
       inRange.sort((a,b) => { const p = PRIORITY[a.type]-PRIORITY[b.type]; return p !== 0 ? p : a.hp-b.hp; });

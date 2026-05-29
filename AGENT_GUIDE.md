@@ -185,7 +185,9 @@ The `events` array is the key — it's a text log of everything that happened:
 [T1] -- turn start --
 [mov] my.knight_1 moved [0,3]→[2,3]
 [atk] my.archer_1 attacked enemy.priest_1 for 18 dmg (hp 32/50)
-[skl] enemy.mage_1 cast fireball at [3,3] → my.knight_1(25), my.archer_2(25)
+[atk] enemy.mage_1 attacked my.knight_1 for 10 dmg (hp 90/100)
+[atk] enemy.mage_1 splash hit my.archer_2(15), my.spear_1(15)
+[atk] my.priest_1 healed my.knight_1 +20 (hp 100/100)
 [die] my.archer_2 died (side A)
 [END] A wins by total elimination at turn 8
 ```
@@ -237,9 +239,9 @@ loop:
 Both sides submit actions simultaneously. Engine resolves in order:
 1. **Defend** — defending units take half damage
 2. **Movement** — all moves happen (ties broken by initiative)
-3. **Attack** — all attacks resolve (can mutual-kill)
-4. **Skill** — fireball/heal
-5. **Death** — units with hp ≤ 0 removed
+3. **Attack** — all attacks resolve (can mutual-kill). Passives fire here: mage
+   splash, spear pierce, and priest heal (attacking a friendly heals it)
+4. **Death** — units with hp ≤ 0 removed
 
 ### Victory
 - Eliminate all enemy units → you win (only counts once that side has fielded a unit)
@@ -258,22 +260,25 @@ Both sides submit actions simultaneously. Engine resolves in order:
 
 ### AP System
 - 10 AP per turn per side. **AP is purely a movement budget — only moving costs AP.**
-- move costs **1 AP**. attack, skill, and defend are **free (0 AP)**. Buying costs money, not AP.
-- So AP caps how many units you can reposition per turn (up to 10). A unit that stays put can still attack or cast a skill for free.
-- Attacks/skills are still limited to **one action per unit per turn**, and skills by their cooldown.
+- move costs **1 AP**. attack and defend are **free (0 AP)**. Buying costs money, not AP.
+- So AP caps how many units you can reposition per turn (up to 10). A unit that stays put can still attack for free.
+- Attacks are limited to **one action per unit per turn**.
 - AP exceeded? Move actions execute front-to-back, excess moves silently truncated.
 
 ---
 
 ## Unit Stats Table
 
-| Unit | HP | ATK | Range | Move | AP/action | Cost ($) | Special |
+| Unit | HP | ATK | Range | Move | Initiative | Cost ($) | Special (passive) |
 |---|---|---|---|---|---|---|---|
-| knight | 100 | 20 | 1 | 2 | 1 | 5 | Takes half damage |
-| spear | 60 | 25 | 2 | 3 | 1 | 3 | Pierce: hits unit behind target too (half dmg) |
-| archer | 40 | 18 | 4 | 2 | 1 | 3 | Long range |
-| mage | 35 | 30 | 3 | 1 | 1 | 4 | Skill `fireball` (free, AOE radius 1, 25 dmg, cooldown 2) |
-| priest | 50 | 8 | 2 | 1 | 1 | 4 | Skill `heal` (free, +25 HP to ally, cooldown 1) |
+| knight | 100 | 20 | 1 | 2 | 3 | 5 | Takes half damage |
+| spear | 60 | 25 | 2 | 3 | 5 | 3 | Pierce: hits unit behind target too (half dmg) |
+| archer | 40 | 18 | 4 | 2 | 6 | 3 | Long range |
+| mage | 35 | 30 | 3 | 1 | 4 | 4 | Splash: hitting an enemy also deals atk/2 (15) to enemies within radius 1 of the target |
+| priest | 50 | 10 | 2 | 1 | 4 | 4 | Heal: `attack` a friendly unit to heal it for atk×2 (20) instead of damaging |
+| engineer | 40 | 12 | 1 | 2 | 4 | 2 | None — cheap melee body |
+
+Initiative = action order within a phase: higher acts first (lands killing blows / claims cells before slower units).
 
 ---
 
@@ -282,16 +287,16 @@ Both sides submit actions simultaneously. Engine resolves in order:
 ```js
 { unitId: "knight_1", action: "move",    target: [3, 4] }          // 1 AP
 { unitId: "archer_2", action: "attack",  targetUnitId: "enemy_mage_1" } // free (0 AP)
-{ unitId: "mage_1",   action: "skill",   skill: "fireball", target: [5, 4] } // free (cooldown 2)
-{ unitId: "priest_1", action: "skill",   skill: "heal", target: "knight_1" }  // free (cooldown 1)
+{ unitId: "mage_1",   action: "attack",  targetUnitId: "enemy_spear_1" } // free; auto-splashes nearby enemies
+{ unitId: "priest_1", action: "attack",  targetUnitId: "knight_1" }  // free; targeting a friendly HEALS it
 { unitId: "spear_1",  action: "defend" }                           // free
 { action: "buy", unitType: "archer" }                              // costs money, not AP; no unitId
 ```
 
 **Important**:
-- `target` for move/skill is `[x, y]` array
-- `target` for heal is unit ID string
-- `targetUnitId` for attack is enemy unit ID string
+- `target` for move is an `[x, y]` array
+- `targetUnitId` for attack is a unit ID string — an **enemy** to damage, or (priest only) a **friendly** to heal
+- There is no separate skill action: mage splash and priest heal are passives that trigger on a normal `attack`
 - Unit IDs look like: `knight_1`, `archer_2`, `mage_1` (type + sequence number)
 
 ---
@@ -302,11 +307,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
 {
   myUnits: [{
     id: "knight_1",
-    type: "knight",         // "knight"|"spear"|"archer"|"mage"|"priest"
+    type: "knight",         // "knight"|"spear"|"archer"|"mage"|"priest"|"engineer"
     pos: [3, 5],            // [x, y] array, NOT {x,y} object!
     hp: 80,
     maxHp: 100,
-    cooldowns: { "fireball": 0 }  // 0 = ready, >0 = turns until ready
+    cooldowns: {}           // unused — no cooldowns in the game anymore
   }, ...],
   enemyUnits: [{ ... }],   // same format, fully visible
   myArmy: [{ type: "knight", count: 1 }, ...],  // your composition so far (empty on turn 1)
@@ -330,10 +335,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
 | `async function decideTurn` | `function decideTurn` — synchronous only |
 | Not checking empty enemyUnits | `if (!ctx.enemyUnits.length) return [];` |
 | Sending 2 actions for 1 unit | Only 1 action per unit per turn |
-| Spending AP on attacks/skills | Only moving costs AP — attacks and skills are free |
-| Expecting units on turn 1 | You start empty — `buy` an army first (turn 1 has 17 money) |
+| Spending AP on attacks | Only moving costs AP — attacks are free |
+| Expecting units on turn 1 | You start empty — `buy` an army first (turn 1 has 20 money) |
 | Publishing without simulating | Always simulate first |
-| Ignoring cooldowns | Check `unit.cooldowns.fireball === 0` before skill |
+| Looking for a `skill` action | There is none — mage splash & priest heal are passives on `attack` |
+| Healing with a position target | Priest heals by `attack` with `targetUnitId` set to a **friendly** unit |
 | Buying with AP | Buying costs money (ctx.myMoney), not AP |
 | Adding unitId to buy | `buy` has no unitId — it creates a new unit |
 
@@ -341,11 +347,11 @@ Both sides submit actions simultaneously. Engine resolves in order:
 
 ## Bot Personalities
 
-**red-charger**: Rushes all units forward, attacks nearest enemy, mage fireballs clusters.
-→ Counter: Spread out, defend turn 1, counter-attack when they overextend.
+**red-charger**: Rushes all units forward, attacks nearest enemy, mage splash on the front line.
+→ Counter: Spread out so the mage splash hits fewer units, defend turn 1, counter-attack when they overextend.
 
 **blue-turtle**: Knights hold line, ranged retreats from danger, priest heals frontline.
-→ Counter: Fireball their back line, don't rush into their defensive formation.
+→ Counter: Bring your own mage to splash their back line, don't rush into their defensive formation.
 
 **green-tactician**: Prioritizes killing your mage/priest first, moderate advance.
 → Counter: Protect high-threat units, use defend on them to survive focus fire.

@@ -1,9 +1,9 @@
 // blue-turtle: defensive formation. Knights+spears hold line, archers DPS from
-// behind, mages AOE, priests heal. Compact formation for 16x12 board.
+// behind, mages splash, priests heal. Compact formation for 16x12 board.
 
-const COST  = { knight:5, spear:3, archer:3, mage:4, priest:4 };
-const RANGE = { knight:1, spear:2, archer:4, mage:3, priest:2 };
-const MOVE  = { knight:2, spear:3, archer:2, mage:1, priest:1 };
+const COST  = { knight:5, spear:3, archer:3, mage:4, priest:4, engineer:2 };
+const RANGE = { knight:1, spear:2, archer:4, mage:3, priest:2, engineer:1 };
+const MOVE  = { knight:2, spear:3, archer:2, mage:1, priest:1, engineer:2 };
 
 function dist(a, b) { return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
 
@@ -66,32 +66,20 @@ export function decideTurn(ctx) {
 
   let ap = ctx.myAP;
 
-  // Priest heal (free, no AP cost)
+  // Priest heals the lowest-HP% ally by attacking it (heal is a passive)
+  const healed = new Set();
   for (const u of ctx.myUnits) {
-    if (u.type !== "priest" || (u.cooldowns.heal||0) > 0) continue;
+    if (u.type !== "priest") continue;
     const w = ctx.myUnits
       .filter(a => a.id !== u.id && a.hp < a.maxHp * 0.5)
       .sort((a,b) => a.hp/a.maxHp - b.hp/b.maxHp);
     const t = w.find(a => dist(u.pos, a.pos) <= RANGE.priest);
-    if (t) { actions.push({ unitId:u.id, action:"skill", skill:"heal", target:t.id }); }
+    if (t) { actions.push({ unitId:u.id, action:"attack", targetUnitId:t.id }); healed.add(u.id); }
   }
 
-  // Mage fireball on 3+ clusters (free, no AP cost)
+  // Operate: attack (free), move conservatively. Mage splash is automatic.
   for (const u of ctx.myUnits) {
-    if (u.type !== "mage" || (u.cooldowns.fireball||0) > 0) continue;
-    for (const e of threats) {
-      const n = ctx.enemyUnits.filter(o =>
-        Math.max(Math.abs(o.pos[0]-e.pos[0]), Math.abs(o.pos[1]-e.pos[1])) <= 1
-      ).length;
-      if (n >= 3 && dist(u.pos, e.pos) <= RANGE.mage) {
-        actions.push({ unitId:u.id, action:"skill", skill:"fireball", target:e.pos });
-        break;
-      }
-    }
-  }
-
-  // Operate: attack (free), move conservatively
-  for (const u of ctx.myUnits) {
+    if (healed.has(u.id)) continue;
     const hit = wounded.find(e => dist(u.pos, e.pos) <= RANGE[u.type]);
     if (hit) { actions.push({ unitId:u.id, action:"attack", targetUnitId:hit.id }); continue; }
     if (ap < 1) continue;

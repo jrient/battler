@@ -4,14 +4,15 @@ const CELL_SIZE = 48;
 const CELL_GAP = 1;
 const STEP = CELL_SIZE + CELL_GAP;
 
-const UNIT_ICONS = { knight: "🗡️", spear: "🔱", archer: "🏹", mage: "🔮", priest: "✚" };
-const UNIT_NAMES = { knight: "重甲骑士", spear: "长矛兵", archer: "弓手", mage: "法师", priest: "牧师" };
+const UNIT_ICONS = { knight: "🗡️", spear: "🔱", archer: "🏹", mage: "🔮", priest: "✚", engineer: "🔧" };
+const UNIT_NAMES = { knight: "重甲骑士", spear: "长矛兵", archer: "弓手", mage: "法师", priest: "牧师", engineer: "工兵" };
 const UNIT_STATS = {
   knight: { hp: 100, atk: 20, range: 1, move: 2, special: "受伤减半" },
   spear: { hp: 60, atk: 25, range: 2, move: 3, special: "穿透" },
   archer: { hp: 40, atk: 18, range: 4, move: 2, special: "远程" },
-  mage: { hp: 35, atk: 30, range: 3, move: 1, special: "fireball" },
-  priest: { hp: 50, atk: 8, range: 2, move: 1, special: "heal" },
+  mage: { hp: 35, atk: 30, range: 3, move: 1, special: "溅射" },
+  priest: { hp: 50, atk: 10, range: 2, move: 1, special: "治疗" },
+  engineer: { hp: 40, atk: 12, range: 1, move: 2, special: "—" },
 };
 
 function phaseLabel(phase) {
@@ -24,6 +25,7 @@ const PROJECTILE_TYPES = {
   archer: { emoji: "➳", speed: 250, trail: "#ffaa44" },
   mage: { emoji: "🔥", speed: 400, trail: "#ff4444", aoe: true },
   priest: { emoji: "✨", speed: 350, trail: "#44ff44" },
+  engineer: { emoji: "🔧", speed: 300, trail: "#cccccc" },
 };
 
 class ReplayApp {
@@ -134,35 +136,6 @@ class ReplayApp {
     return attacks;
   }
 
-  // Parse skill events for a given turn (heals, etc.)
-  parseSkillEvents(turnNum) {
-    const turnEvents = this.eventsByTurn?.[turnNum] || [];
-    const skills = [];
-    for (const ev of turnEvents) {
-      if (!ev.includes("[skl]")) continue;
-      // Heal pattern
-      const hm = ev.match(/\[skl\]\s+(\S+)\s+healed\s+(\S+)\s+for\s+(\d+)/);
-      if (hm) {
-        const casterId = this.eventToSnapshotId(hm[1]);
-        const targetId = this.eventToSnapshotId(hm[2]);
-        const amount = parseInt(hm[3]);
-        if (casterId && targetId) {
-          skills.push({ casterId, targetId, amount, type: "heal" });
-        }
-      }
-      // Fireball pattern
-      const fm = ev.match(/\[skl\]\s+(\S+)\s+fireball.*?(\d+)\s+dmg/);
-      if (fm) {
-        const casterId = this.eventToSnapshotId(fm[1]);
-        const dmg = parseInt(fm[2]);
-        if (casterId) {
-          skills.push({ casterId, dmg, type: "fireball" });
-        }
-      }
-    }
-    return skills;
-  }
-
   async loadMatch() {
     await window.i18nReady;
     const matchId = document.getElementById("matchIdInput").value.trim();
@@ -245,8 +218,7 @@ class ReplayApp {
       const div = document.createElement("div");
       let cls = "";
       if (ev.includes("[mov]")) cls = "event-move";
-      else if (ev.includes("[atk]")) cls = "event-attack";
-      else if (ev.includes("[skl]")) cls = "event-skill";
+      else if (ev.includes("[atk]")) cls = ev.includes("healed") ? "event-skill" : "event-attack";
       else if (ev.includes("[die]")) cls = "event-death";
       else if (ev.includes("[buy]")) cls = "event-recruit";
       else if (ev.includes("[END]")) cls = "event-end";
@@ -460,7 +432,7 @@ class ReplayApp {
     setTimeout(() => el.remove(), 500);
   }
 
-  // Show AOE circle effect (for mage fireball)
+  // Show AOE circle effect (for mage splash)
   showAoeEffect(x, y, radius = 2) {
     const el = document.createElement("div");
     el.className = "aoe-effect";
@@ -570,7 +542,6 @@ class ReplayApp {
       case "defend": return 600;
       case "move": return 800;
       case "attack": return 1500;
-      case "skill": return 1200;
       case "death": return 800;
       case "buy": return 600;
       default: return 600;
@@ -672,8 +643,6 @@ class ReplayApp {
 
     if (phase.phase === "attack") {
       this.playAttackEffects(prevSnapshot, phase.units);
-    } else if (phase.phase === "skill") {
-      this.playSkillEffects(prevSnapshot, phase.units);
     } else {
       // Generic HP change effects for defend/death phases
       for (const u of phase.units) {
@@ -695,6 +664,11 @@ class ReplayApp {
     const prevMap = {};
     for (const u of prevSnapshot) prevMap[u.id] = u;
 
+    // Primary targets get a projectile + damage number below; track them so the
+    // HP-diff pass doesn't double-count. Secondary HP changes (mage splash,
+    // spear pierce, priest heal) are detected from the snapshot diff instead.
+    const shownIds = new Set(attacks.map(a => a.targetId));
+
     // Stagger attacks: each one 250ms apart
     attacks.forEach((atk, i) => {
       setTimeout(() => {
@@ -708,6 +682,8 @@ class ReplayApp {
         // After projectile hits, show impact + damage
         setTimeout(() => {
           this.showImpact(toPos.x, toPos.y, attackerType === "mage" ? "aoe" : "normal");
+          // Mage splash: ring the radius-1 area around the target.
+          if (attackerType === "mage") this.showAoeEffect(toPos.x, toPos.y, 1);
           this.showDamageNumber(atk.targetId, atk.dmg, "damage");
           this.flashUnit(atk.targetId, "attack-flash", 300);
 
@@ -729,53 +705,23 @@ class ReplayApp {
         }
       }, i * 250);
     });
-  }
 
-  playSkillEffects(prevSnapshot, currSnapshot) {
-    const skills = this.parseSkillEvents(this.turnIndex + 1);
-    const prevMap = {};
-    for (const u of prevSnapshot) prevMap[u.id] = u;
-
-    skills.forEach((sk, i) => {
-      setTimeout(() => {
-        const casterPos = this.getUnitCenter(sk.casterId, prevSnapshot);
-
-        if (sk.type === "heal" && sk.targetId) {
-          const targetPos = this.getUnitCenter(sk.targetId, prevSnapshot);
-          if (casterPos && targetPos) {
-            this.animateProjectile(casterPos, targetPos, "priest");
-            setTimeout(() => {
-              this.showImpact(targetPos.x, targetPos.y, "heal");
-              this.showDamageNumber(sk.targetId, sk.amount, "heal");
-              this.flashUnit(sk.targetId, "heal-glow", 500);
-            }, 350);
-          }
-        }
-
-        if (sk.type === "fireball" && casterPos) {
-          // AOE explosion centered on mage
-          this.showAoeEffect(casterPos.x, casterPos.y, 1);
-          this.screenShake(4, 200);
-        }
-      }, i * 300);
-    });
-
-    // Also check for HP changes from skills in snapshot comparison
+    // Snapshot HP-diff pass for effects not tied to a primary attack:
+    // priest heals (HP up) and mage splash / spear pierce (HP down on units
+    // that weren't the primary target).
     const prevHp = {};
     for (const u of prevSnapshot) prevHp[u.id] = u.hp;
     for (const u of currSnapshot) {
+      if (shownIds.has(u.id)) continue;
       const prev = prevHp[u.id];
       if (prev === undefined) continue;
-      if (u.hp < prev && u.hp > 0) {
-        // Don't double-show if already shown by attack phase
-        // This handles skill damage not covered by parsed events
-      }
       if (u.hp > prev) {
         this.showDamageNumber(u.id, u.hp - prev, "heal");
         this.flashUnit(u.id, "heal-glow", 500);
-      }
-      if (u.hp <= 0 && prev > 0) {
-        setTimeout(() => this.flashUnit(u.id, "dying", 600), 200);
+      } else if (u.hp < prev) {
+        this.showDamageNumber(u.id, prev - u.hp, "damage");
+        this.flashUnit(u.id, "attack-flash", 300);
+        if (u.hp <= 0) setTimeout(() => this.flashUnit(u.id, "dying", 600), 200);
       }
     }
   }

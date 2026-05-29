@@ -24,7 +24,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     cost: 5,
     initiative: 3,
     special: "damage_reduction_half",
-    skills: [],
   },
   spear: {
     type: "spear",
@@ -36,7 +35,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     cost: 3,
     initiative: 5,
     special: "pierce_one",
-    skills: [],
   },
   archer: {
     type: "archer",
@@ -48,7 +46,6 @@ export const UNITS: Record<UnitType, UnitDef> = {
     cost: 3,
     initiative: 6,
     special: null,
-    skills: [],
   },
   mage: {
     type: "mage",
@@ -59,27 +56,32 @@ export const UNITS: Record<UnitType, UnitDef> = {
     actionAP: 1,
     cost: 4,
     initiative: 4,
-    special: null,
-    skills: [
-      { name: "fireball", apCost: 3, cooldown: 2, description: "AOE radius 1, damage 25" },
-    ],
+    special: "splash",
   },
   priest: {
     type: "priest",
     hp: 50,
-    atk: 8,
+    atk: 10,
     range: 2,
     moveRange: 1,
     actionAP: 1,
     cost: 4,
     initiative: 4,
+    special: "heal_ally",
+  },
+  engineer: {
+    type: "engineer",
+    hp: 40,
+    atk: 12,
+    range: 1,
+    moveRange: 2,
+    actionAP: 1,
+    cost: 2,
+    initiative: 4,
     special: null,
-    skills: [
-      { name: "heal", apCost: 2, cooldown: 1, description: "Heal target friendly +25 HP" },
-    ],
   },
 };
 
-export const FIREBALL_DAMAGE = 25;
-export const FIREBALL_AOE_RADIUS = 1;
-export const HEAL_AMOUNT = 25;
+// Mage splash: enemies within this Chebyshev radius of the primary target take
+// floor(atk/2) extra damage.
+export const SPLASH_RADIUS = 1;

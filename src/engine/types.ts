@@ -1,4 +1,4 @@
-export type UnitType = "knight" | "spear" | "archer" | "mage" | "priest";
+export type UnitType = "knight" | "spear" | "archer" | "mage" | "priest" | "engineer";
 export type Position = [number, number];
 export type Side = "A" | "B";
 
@@ -12,20 +12,14 @@ export interface UnitDef {
   cost: number;
   initiative: number;
   special: UnitSpecial;
-  skills: SkillDef[];
 }
 
 export type UnitSpecial =
   | "damage_reduction_half"
   | "pierce_one"
+  | "splash"
+  | "heal_ally"
   | null;
-
-export interface SkillDef {
-  name: string;
-  apCost: number;
-  cooldown: number;
-  description: string;
-}
 
 export interface Unit {
   id: string;
@@ -55,7 +49,6 @@ export interface ArmyEntry {
 export type Action =
   | { unitId: string; action: "move"; target: Position }
   | { unitId: string; action: "attack"; targetUnitId: string }
-  | { unitId: string; action: "skill"; skill: string; target: Position | string }
   | { unitId: string; action: "defend" }
   | { action: "buy"; unitType: UnitType };
 
@@ -105,7 +98,7 @@ export interface UnitSnapshot {
 }
 
 export interface PhaseSnapshot {
-  phase: "defend" | "move" | "attack" | "skill" | "death" | "buy";
+  phase: "defend" | "move" | "attack" | "death" | "buy";
   units: UnitSnapshot[];
 }
 

@@ -6,8 +6,8 @@ import { toAgentJson } from "../engine/replay.js";
  * Minimal agent: each unit moves toward / attacks the nearest enemy.
  */
 const aggressor: DecideFn = (ctx: DecideCtx): Action[] => {
-  const range: Record<string, number> = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
-  const moveRange: Record<string, number> = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2 };
+  const range: Record<string, number> = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2, engineer: 1 };
+  const moveRange: Record<string, number> = { knight: 3, spear: 2, archer: 2, mage: 1, priest: 2, engineer: 2 };
   const actions: Action[] = [];
   let ap = ctx.myAP;
   for (const u of ctx.myUnits) {
@@ -46,7 +46,7 @@ const aggressor: DecideFn = (ctx: DecideCtx): Action[] => {
  * Minimal defender: stays put and attacks anything in range.
  */
 const turtle: DecideFn = (ctx: DecideCtx): Action[] => {
-  const range: Record<string, number> = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
+  const range: Record<string, number> = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2, engineer: 1 };
   const actions: Action[] = [];
   let ap = ctx.myAP;
   for (const u of ctx.myUnits) {

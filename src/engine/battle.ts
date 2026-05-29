@@ -7,9 +7,7 @@ import {
   AP_PER_TURN,
   STARTING_MONEY,
   MONEY_INCOME_PER_TURN,
-  FIREBALL_DAMAGE,
-  FIREBALL_AOE_RADIUS,
-  HEAL_AMOUNT,
+  SPLASH_RADIUS,
 } from "./units.js";
 import { makeRng } from "./rng.js";
 import type {
@@ -55,8 +53,8 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
 
   // Track unit ID sequence counters per side for purchases
   const seqCounters: Record<Side, Record<UnitType, number>> = {
-    A: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
-    B: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0 },
+    A: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0, engineer: 0 },
+    B: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0, engineer: 0 },
   };
 
   const allEvents: string[] = [];
@@ -122,9 +120,6 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     totalDamageDealtA += dmgFromA;
     totalDamageDealtB += dmgFromB;
     phases.push({ phase: "attack", units: snapshotUnits(units) });
-
-    phaseSkill([...actsA, ...actsB], units, turnEvents);
-    phases.push({ phase: "skill", units: snapshotUnits(units) });
 
     const deaths = phaseDeath(units, turnEvents);
     aLost += deaths.aLost;
@@ -293,12 +288,6 @@ function computeApCost(action: Action, unit: Unit): number | null {
       return UNITS[unit.type].actionAP;
     case "attack":
       return 0;
-    case "skill": {
-      // Skills are free; still require a valid skill name (cooldown is enforced
-      // later in the skill phase).
-      const def = UNITS[unit.type].skills.find((s) => s.name === action.skill);
-      return def ? 0 : null;
-    }
     case "defend":
       return 0;
     default:
@@ -360,18 +349,28 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       events.push(`[atk] ${attacker.id} attack failed: target ${targetId} not found`);
       continue;
     }
-    if (target.side === attacker.side) {
-      events.push(`[atk] ${attacker.id} attack failed: cannot attack ally ${target.id}`);
-      continue;
-    }
     const dist = manhattan(attacker.pos, target.pos);
     if (dist > UNITS[attacker.type].range) {
       events.push(`[atk] ${attacker.id} attack failed: target ${target.id} out of range (d=${dist})`);
       continue;
     }
 
-    const baseDmg = UNITS[attacker.type].atk;
-    const dealt = applyDamage(target, baseDmg);
+    const atk = UNITS[attacker.type].atk;
+
+    // Priest passive: targeting a friendly unit heals it for atk*2 instead of
+    // dealing damage.
+    if (target.side === attacker.side) {
+      if (UNITS[attacker.type].special !== "heal_ally") {
+        events.push(`[atk] ${attacker.id} attack failed: cannot attack ally ${target.id}`);
+        continue;
+      }
+      const before = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + atk * 2);
+      events.push(`[atk] ${attacker.id} healed ${target.id} +${target.hp - before} (hp ${target.hp}/${target.maxHp})`);
+      continue;
+    }
+
+    const dealt = applyDamage(target, atk);
     totalDamage += dealt;
     events.push(`[atk] ${attacker.id} attacked ${target.id} for ${dealt} dmg (hp ${target.hp}/${target.maxHp})`);
 
@@ -382,76 +381,33 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       if (inBounds(behind)) {
         const pierceTarget = allUnits.find((u) => u.hp > 0 && samePos(u.pos, behind) && u.id !== attacker.id);
         if (pierceTarget) {
-          const pierceDmg = applyDamage(pierceTarget, Math.floor(baseDmg / 2));
+          const pierceDmg = applyDamage(pierceTarget, Math.floor(atk / 2));
           totalDamage += pierceDmg;
           events.push(`[atk] ${attacker.id} pierce hit ${pierceTarget.id} for ${pierceDmg} dmg`);
         }
       }
     }
-  }
-  return totalDamage;
-}
 
-function phaseSkill(actions: ValidatedAction[], allUnits: Unit[], events: string[]): void {
-  const skillActions = actions
-    .filter((va) => va.raw.action === "skill")
-    .sort((a, b) => UNITS[b.unit.type].initiative - UNITS[a.unit.type].initiative);
-
-  for (const va of skillActions) {
-    const raw = va.raw;
-    if (raw.action !== "skill") continue;
-    const caster = va.unit;
-    const skillName = raw.skill;
-    const def = UNITS[caster.type].skills.find((s) => s.name === skillName);
-    if (!def) {
-      events.push(`[skl] ${caster.id} skill failed: ${skillName} unknown`);
-      continue;
-    }
-    if ((caster.cooldowns[def.name] ?? 0) > 0) {
-      events.push(`[skl] ${caster.id} skill failed: ${def.name} on cooldown (${caster.cooldowns[def.name]})`);
-      continue;
-    }
-
-    if (def.name === "fireball") {
-      const target = raw.target as Position;
-      if (!Array.isArray(target) || !inBounds(target)) {
-        events.push(`[skl] ${caster.id} fireball failed: invalid target`);
-        continue;
-      }
-      const distFromCaster = manhattan(caster.pos, target);
-      if (distFromCaster > UNITS[caster.type].range) {
-        events.push(`[skl] ${caster.id} fireball failed: target [${target}] out of range`);
-        continue;
-      }
+    // Mage passive: enemies around the primary target take floor(atk/2) splash.
+    if (UNITS[attacker.type].special === "splash") {
+      const splashDmg = Math.floor(atk / 2);
       const hits: string[] = [];
       for (const u of allUnits) {
         if (u.hp <= 0) continue;
-        const d = chebyshev(u.pos, target);
-        if (d <= FIREBALL_AOE_RADIUS) {
-          const dealt = applyDamage(u, FIREBALL_DAMAGE);
-          hits.push(`${u.id}(${dealt})`);
+        if (u.id === target.id) continue;
+        if (u.side === attacker.side) continue;
+        if (chebyshev(u.pos, target.pos) <= SPLASH_RADIUS) {
+          const dealtSplash = applyDamage(u, splashDmg);
+          totalDamage += dealtSplash;
+          hits.push(`${u.id}(${dealtSplash})`);
         }
       }
-      caster.cooldowns[def.name] = def.cooldown;
-      events.push(`[skl] ${caster.id} cast fireball at [${target[0]},${target[1]}] → ${hits.join(", ") || "no hits"}`);
-    } else if (def.name === "heal") {
-      const targetId = raw.target as string;
-      const ally = allUnits.find((u) => u.id === targetId && u.side === caster.side && u.hp > 0);
-      if (!ally) {
-        events.push(`[skl] ${caster.id} heal failed: target ${targetId} invalid`);
-        continue;
+      if (hits.length) {
+        events.push(`[atk] ${attacker.id} splash hit ${hits.join(", ")}`);
       }
-      const dist = manhattan(caster.pos, ally.pos);
-      if (dist > UNITS[caster.type].range) {
-        events.push(`[skl] ${caster.id} heal failed: target ${ally.id} out of range`);
-        continue;
-      }
-      const before = ally.hp;
-      ally.hp = Math.min(ally.maxHp, ally.hp + HEAL_AMOUNT);
-      caster.cooldowns[def.name] = def.cooldown;
-      events.push(`[skl] ${caster.id} healed ${ally.id} +${ally.hp - before} (hp ${ally.hp}/${ally.maxHp})`);
     }
   }
+  return totalDamage;
 }
 
 function phaseDeath(units: Unit[], events: string[]): { aLost: number; bLost: number } {

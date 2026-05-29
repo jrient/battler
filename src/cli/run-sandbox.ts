@@ -15,7 +15,7 @@ const minimalDefender = `
 export function decideTurn(ctx) {
   const actions = [];
   let ap = ctx.myAP;
-  const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
+  const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2, engineer: 1 };
   for (const u of ctx.myUnits) {
     if (ap < 1) break;
     const r = RANGE[u.type] || 1;

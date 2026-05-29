@@ -470,12 +470,12 @@ app.post("/api/register", async (c) => {
 const DEMO_CODE = `// AgentClash demo strategy — buys an army with money, then fights smart.
 // Turn 1 you start with no units: spend ctx.myMoney to buy, then operate
 // whatever is on the board with ctx.myAP.
-const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2 };
-const MOVE = { knight: 2, spear: 3, archer: 2, mage: 1, priest: 1 };
-const COST = { knight: 5, spear: 3, archer: 3, mage: 4, priest: 4 };
-const THREAT = { mage: 10, priest: 8, archer: 7, spear: 4, knight: 2 };
+const RANGE = { knight: 1, spear: 2, archer: 4, mage: 3, priest: 2, engineer: 1 };
+const MOVE = { knight: 2, spear: 3, archer: 2, mage: 1, priest: 1, engineer: 2 };
+const COST = { knight: 5, spear: 3, archer: 3, mage: 4, priest: 4, engineer: 2 };
+const THREAT = { mage: 10, archer: 7, priest: 6, spear: 4, engineer: 3, knight: 2 };
 // Buy priority — cycles through this list while you can still afford something.
-const BUY_ORDER = ["spear", "archer", "knight", "mage", "priest"];
+const BUY_ORDER = ["spear", "archer", "knight", "mage", "priest", "engineer"];
 
 export function decideTurn(ctx) {
   const actions = [];
@@ -493,33 +493,23 @@ export function decideTurn(ctx) {
     i++;
   }
 
-  // --- Operate units. Attacks and skills are free; only moving costs AP. ---
+  // --- Operate units. Attacks are free; only moving costs AP. ---
+  // Mage splash and priest heal are passives that trigger automatically on a
+  // normal attack: a mage hitting an enemy also splashes nearby enemies, and a
+  // priest "attacking" a friendly unit heals it instead.
   let ap = ctx.myAP;
   if (!ctx.enemyUnits.length) return actions;
 
   const targets = [...ctx.enemyUnits].sort((a, b) => THREAT[b.type] - THREAT[a.type]);
 
   for (const u of ctx.myUnits) {
-    if (u.type === "mage" && (u.cooldowns.fireball || 0) === 0) {
-      let bestPos = null, bestN = 0;
-      for (const e of ctx.enemyUnits) {
-        const n = ctx.enemyUnits.filter(o =>
-          Math.max(Math.abs(o.pos[0]-e.pos[0]), Math.abs(o.pos[1]-e.pos[1])) <= 1
-        ).length;
-        if (n > bestN) { bestN = n; bestPos = e.pos; }
-      }
-      if (bestN >= 2 && bestPos && mhd(u.pos, bestPos) <= RANGE.mage) {
-        actions.push({ unitId: u.id, action: "skill", skill: "fireball", target: bestPos });
-        continue;
-      }
-    }
-
-    if (u.type === "priest" && (u.cooldowns.heal || 0) === 0) {
+    // Priest: heal the most wounded ally in range by attacking it.
+    if (u.type === "priest") {
       const w = ctx.myUnits.filter(a => a.id !== u.id && a.hp < a.maxHp * 0.6)
         .sort((a, b) => a.hp - b.hp);
       const t = w.find(a => mhd(u.pos, a.pos) <= RANGE.priest);
       if (t) {
-        actions.push({ unitId: u.id, action: "skill", skill: "heal", target: t.id });
+        actions.push({ unitId: u.id, action: "attack", targetUnitId: t.id });
         continue;
       }
     }
@@ -947,8 +937,8 @@ ${actionsList}
 ## Game Rules Quick Reference
 
 - **16×12 grid**, fully visible, positions are \`[x, y]\` arrays
-- **5 AP per turn** for moves/attacks/skills; separate **recruit AP** for spawning new units
-- Units: knight(100HP), spear(60HP), archer(40HP), mage(35HP, fireball skill), priest(50HP, heal skill)
+- **10 AP per turn** — only moving costs AP; attacks are free. Buy units with money, not AP
+- Units: knight(100HP), spear(60HP), archer(40HP), mage(35HP, splash passive), priest(50HP, heal passive), engineer(40HP, cheap melee)
 - **Simulate before publishing** — never expose untested code
 - Full rules: \`GET /api/agent-guide\`
 

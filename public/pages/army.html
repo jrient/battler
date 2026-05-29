@@ -23,6 +23,7 @@
     .unit-icon.archer { background: #6a4a3a; }
     .unit-icon.mage { background: #5a3a7a; }
     .unit-icon.priest { background: #7a7a5a; }
+    .unit-icon.engineer { background: #4a4a4a; }
     .unit-name { font-size: 18px; font-weight: 700; color: var(--text); }
     .unit-type-tag { font-size: 11px; color: var(--text-dim); }
 
@@ -34,15 +35,22 @@
     .stat-value.atk { color: #f66; }
     .stat-value.range { color: #6cf; }
     .stat-value.move { color: #fc6; }
+    .stat-value.initiative { color: #c9f; }
     .stat-value.cost { color: var(--gold); }
 
-    .skill-box { margin-top: 10px; padding: 10px 12px; background: var(--bg); border-radius: 6px; font-size: 12px; }
-    .skill-name { font-weight: 700; color: var(--gold); }
-    .skill-detail { color: var(--text-dim); margin-top: 2px; }
     .special-box { margin-top: 10px; padding: 8px 12px; background: rgba(200,160,60,0.1); border: 1px solid rgba(200,160,60,0.3); border-radius: 6px; font-size: 12px; color: #db0; }
+    .special-box.none { background: var(--bg); border-color: var(--border); color: var(--text-dim); }
+
+    .legend { margin-top: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+    .legend h2 { font-size: 15px; color: var(--text); margin: 0 0 12px; }
+    .legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+    .legend dt { color: var(--gold); font-weight: 700; }
+    .legend dd { color: var(--text-dim); margin: 0; }
 
     @media (max-width: 640px) {
       .unit-grid { grid-template-columns: 1fr; }
+      .legend dl { grid-template-columns: 1fr; gap: 2px 0; }
+      .legend dd { margin-bottom: 8px; }
     }
   </style>
 </head>
@@ -55,6 +63,18 @@
       <p class="subtitle" data-i18n="army.subtitle">…</p>
     </div>
     <div class="unit-grid" id="unitGrid"></div>
+
+    <section class="legend">
+      <h2 data-i18n="army.legend.title">属性说明</h2>
+      <dl>
+        <dt data-i18n="army.stat.hp">生命</dt><dd data-i18n="army.legend.hp">…</dd>
+        <dt data-i18n="army.stat.atk">攻击</dt><dd data-i18n="army.legend.atk">…</dd>
+        <dt data-i18n="army.stat.range">射程</dt><dd data-i18n="army.legend.range">…</dd>
+        <dt data-i18n="army.stat.move">移动</dt><dd data-i18n="army.legend.move">…</dd>
+        <dt data-i18n="army.stat.initiative">先攻</dt><dd data-i18n="army.legend.initiative">…</dd>
+        <dt data-i18n="army.stat.cost">金钱价</dt><dd data-i18n="army.legend.cost">…</dd>
+      </dl>
+    </section>
   </main>
 
   <div id="footer-mount"></div>
@@ -67,48 +87,46 @@
         {
           type: "knight",
           icon: "🛡️",
-          stats: { hp: 100, atk: 20, range: 1, move: 2, cost: 5 },
+          stats: { hp: 100, atk: 20, range: 1, move: 2, initiative: 3, cost: 5 },
           special: "army.special.knight",
         },
         {
           type: "spear",
           icon: "🗡️",
-          stats: { hp: 60, atk: 25, range: 2, move: 3, cost: 3 },
+          stats: { hp: 60, atk: 25, range: 2, move: 3, initiative: 5, cost: 3 },
           special: "army.special.spear",
         },
         {
           type: "archer",
           icon: "🏹",
-          stats: { hp: 40, atk: 18, range: 4, move: 2, cost: 3 },
+          stats: { hp: 40, atk: 18, range: 4, move: 2, initiative: 6, cost: 3 },
           special: null,
         },
         {
           type: "mage",
           icon: "🧙",
-          stats: { hp: 35, atk: 30, range: 3, move: 1, cost: 4 },
-          special: null,
-          skill: { name: "army.skill.fireball.name", cd: 2, desc: "army.skill.fireball.desc" },
+          stats: { hp: 35, atk: 30, range: 3, move: 1, initiative: 4, cost: 4 },
+          special: "army.special.mage",
         },
         {
           type: "priest",
           icon: "✨",
-          stats: { hp: 50, atk: 8, range: 2, move: 1, cost: 4 },
-          special: null,
-          skill: { name: "army.skill.heal.name", cd: 1, desc: "army.skill.heal.desc" },
+          stats: { hp: 50, atk: 10, range: 2, move: 1, initiative: 4, cost: 4 },
+          special: "army.special.priest",
+        },
+        {
+          type: "engineer",
+          icon: "🔧",
+          stats: { hp: 40, atk: 12, range: 1, move: 2, initiative: 4, cost: 2 },
+          special: "army.special.engineer",
+          noPassive: true,
         },
       ];
 
       function renderCard(u) {
         let extra = "";
         if (u.special) {
-          extra += `<div class="special-box">${t(u.special)}</div>`;
-        }
-        if (u.skill) {
-          extra += `
-            <div class="skill-box">
-              <div class="skill-name">${t(u.skill.name)}</div>
-              <div class="skill-detail">CD ${u.skill.cd}t · ${t(u.skill.desc)}</div>
-            </div>`;
+          extra += `<div class="special-box${u.noPassive ? " none" : ""}">${t(u.special)}</div>`;
         }
         return `
           <div class="unit-card">
@@ -124,6 +142,7 @@
               <div class="stat-row"><span class="stat-label">${t("army.stat.atk")}</span><span class="stat-value atk">${u.stats.atk}</span></div>
               <div class="stat-row"><span class="stat-label">${t("army.stat.range")}</span><span class="stat-value range">${u.stats.range}</span></div>
               <div class="stat-row"><span class="stat-label">${t("army.stat.move")}</span><span class="stat-value move">${u.stats.move}</span></div>
+              <div class="stat-row"><span class="stat-label">${t("army.stat.initiative")}</span><span class="stat-value initiative">${u.stats.initiative}</span></div>
               <div class="stat-row"><span class="stat-label">${t("army.stat.cost")}</span><span class="stat-value cost">${u.stats.cost}</span></div>
               ${extra}
             </div>
