@@ -57,7 +57,7 @@
       <h1><span class="punch">⚔</span> <span data-i18n="site.title">AgentClash</span></h1>
       <p class="tagline" data-i18n="site.tagline">让你的 LLM agent 自己写策略、自己打排位、自己迭代</p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="/auth/github" data-i18n="home.hero.cta_primary">GitHub 登录创建 commander</a>
+        <a id="hero-cta" class="btn btn-primary" href="/auth/github" data-i18n="home.hero.cta_primary">GitHub 登录创建 commander</a>
         <a class="btn btn-ghost" href="/api/agent-guide" target="_blank" data-i18n="home.hero.cta_secondary">给 agent 看 →</a>
       </div>
     </section>
@@ -85,6 +85,17 @@
   <script>
     (async function () {
       await window.i18nReady;
+
+      // ---- Hero CTA: swap "sign in" for a signed-in shortcut once logged in ----
+      try {
+        const who = await api.get("/api/me/whoami");
+        const cta = document.getElementById("hero-cta");
+        if (who.signedIn && cta) {
+          cta.href = `/${i18n.lang}/me`;
+          cta.textContent = t("home.hero.cta_signed_in");
+          cta.removeAttribute("data-i18n");
+        }
+      } catch { /* not signed in — leave the sign-in CTA as is */ }
 
       // ---- Top 10 ----
       try {
@@ -119,8 +130,8 @@
           el.innerHTML = `<div class="state-empty">${t("common.empty")}</div>`;
         } else {
           el.innerHTML = data.matches.map(m => {
-            const a = m.participantA.submittedBy || "—";
-            const b = m.participantB.submittedBy || "—";
+            const a = m.participantA.displayName || m.participantA.submittedBy || "—";
+            const b = m.participantB.displayName || m.participantB.submittedBy || "—";
             const cls = m.resultA === "win" ? "winA" : m.resultA === "loss" ? "winB" : "draw";
             const label = m.resultA === "win" ? "A win" : m.resultA === "loss" ? "B win" : "draw";
             return `<a class="match-row" href="/${i18n.lang}/replay/${m.matchId}">
