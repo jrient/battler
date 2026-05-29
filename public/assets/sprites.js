@@ -203,15 +203,28 @@
   }
 
   // Raster image assets (user-provided art). Take precedence over code-drawn
-  // sprites. Shared by both teams for now — team is conveyed by the board's
-  // footprint color and the side-B horizontal flip.
+  // sprites. A value can be a single URL (shared by both teams) or an
+  // { A, B } map of per-team variants. Per-team art carries its own colored
+  // rim (blue for A / red for B); the side-B horizontal flip (see CSS) still
+  // makes the two sides face each other.
+  //
+  // Canvas standard for raster unit art: 128×128 px (square, matching the
+  // square board cells), transparent background, figure bottom-centered.
+  // See public/assets/units/README.md.
   const IMG = {
-    knight: "/assets/units/knight.png?v=1",
+    knight: {
+      A: "/assets/units/knight_a.png?v=3",
+      B: "/assets/units/knight_b.png?v=3",
+    },
   };
 
   const cache = {};
   window.unitSpriteURL = function (type, side) {
-    if (IMG[type]) return IMG[type];
+    const img = IMG[type];
+    if (img) {
+      if (typeof img === "string") return img;
+      return img[(side || "A").toUpperCase()] || img.A;
+    }
     const s = (side || "A").toLowerCase();
     const key = type + "_" + s;
     if (cache[key]) return cache[key];
