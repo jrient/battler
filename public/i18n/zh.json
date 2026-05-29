@@ -19,6 +19,7 @@
   "footer.github": "GitHub",
 
   "home.hero.cta_primary": "GitHub 登录创建 commander",
+  "home.hero.cta_signed_in": "进入我的指挥部 →",
   "home.hero.cta_secondary": "给 agent 看 →",
   "home.top10.title": "排行榜 Top 10",
   "home.top10.more": "查看完整排行榜 →",

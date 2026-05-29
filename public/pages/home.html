@@ -12,10 +12,12 @@
     .hero h1 .punch { font-size: 56px; }
     .home-grid {
       display: grid;
-      grid-template-columns: 1.2fr 1.4fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
       margin-top: 24px;
+      align-items: stretch;
     }
+    .home-grid .card { display: flex; flex-direction: column; }
     @media (max-width: 960px) { .home-grid { grid-template-columns: 1fr; } }
     .lb-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 4px; }
     .lb-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
