@@ -9,17 +9,19 @@ fallback sprites in `public/assets/sprites.js` (the `IMG` map).
 | ------------- | -------------------------------------------------------- |
 | Size          | **128 × 128 px** (square, to match the square board cells) |
 | Background    | Fully transparent (no checkerboard / matte)              |
-| Placement     | Figure **bottom-anchored, fills the full width** (minimal side margin) |
+| Placement     | **Centered on the character's body axis** (head/torso), bottom-anchored |
 | Style         | Pixel art; rendered with `image-rendering: pixelated`    |
 | Fit at render | `background-size: contain`, `background-position: center bottom` |
 
-The fixed square canvas keeps every unit at a consistent visual scale. Because
-the renderer contain-fits the whole canvas into the sprite box, empty canvas
-space shrinks the figure — so the figure should **fill the canvas width** and
-sit on the bottom edge, leaving only a thin rim margin. (A wide, short figure
-will still leave vertical headroom; that is expected.) On the board the sprite
-box is larger than a cell (`.sprite` in `replay.css`), so figures stand on the
-tile and overflow upward, like a tactics-RPG.
+The fixed square canvas keeps every unit at a consistent visual scale. Center
+the figure on the **character's body**, not its bounding box: held weapons,
+shields, and capes extend asymmetrically, so a bbox-centered figure reads as
+off-center (the body sits to one side while a prop fills the other). Anchor on
+the head/torso column, let props extend toward the edges, and scale so the whole
+silhouette fits within the canvas (a wide action pose will leave vertical
+headroom — that is expected). On the board the sprite box is larger than a cell
+(`.sprite` in `replay.css`), so figures stand on the tile and overflow upward,
+like a tactics-RPG.
 
 ## Per-team variants
 
