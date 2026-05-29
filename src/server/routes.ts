@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -659,37 +660,53 @@ app.get("/api/commander", (c) => {
   return c.json(publicCommanderView(cmd));
 });
 
+// Hard cap on uploaded algorithm files: 100k. Enforced twice — bodyLimit
+// rejects oversized requests before the body is read into memory (DoS guard),
+// and the zod schema bounds the code field itself.
+const MAX_CODE_BYTES = 100 * 1024;
+
 const codeSchema = z.object({
-  code: z.string().min(10).max(100_000),
+  code: z.string().min(10).max(MAX_CODE_BYTES),
   submittedBy: z.string().min(1).max(64),
   changelog: z.string().max(500).optional().default(""),
 });
 
-app.post("/api/commander/code", async (c) => {
-  const cmd = c.get("commander");
-  const body = await safeJson(c);
-  const parsed = codeSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json({ error: "bad_request", message: parsed.error.message }, 400);
-  }
-  const { code, submittedBy, changelog } = parsed.data;
-
-  try {
-    loadAgent(code);
-  } catch (err) {
-    if (err instanceof CompileError) {
-      return c.json(
-        { error: "syntax_error", message: err.message, version: cmd.codeVersion },
-        400,
-      );
+app.post(
+  "/api/commander/code",
+  bodyLimit({
+    maxSize: MAX_CODE_BYTES,
+    onError: (c) =>
+      c.json(
+        { error: "payload_too_large", message: `algorithm file exceeds the ${MAX_CODE_BYTES}-byte (100k) limit` },
+        413,
+      ),
+  }),
+  async (c) => {
+    const cmd = c.get("commander");
+    const body = await safeJson(c);
+    const parsed = codeSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "bad_request", message: parsed.error.message }, 400);
     }
-    throw err;
-  }
+    const { code, submittedBy, changelog } = parsed.data;
 
-  const codeHash = "sha256:" + createHash("sha256").update(code).digest("hex");
-  const updated = updateCommanderCode(cmd.id, { code, codeHash, submittedBy, changelog });
-  return c.json({ version: updated.codeVersion, codeHash: updated.codeHash, syntaxOk: true });
-});
+    try {
+      loadAgent(code);
+    } catch (err) {
+      if (err instanceof CompileError) {
+        return c.json(
+          { error: "syntax_error", message: err.message, version: cmd.codeVersion },
+          400,
+        );
+      }
+      throw err;
+    }
+
+    const codeHash = "sha256:" + createHash("sha256").update(code).digest("hex");
+    const updated = updateCommanderCode(cmd.id, { code, codeHash, submittedBy, changelog });
+    return c.json({ version: updated.codeVersion, codeHash: updated.codeHash, syntaxOk: true });
+  },
+);
 
 const simSchema = z.object({
   opponent: z.string().optional(),
