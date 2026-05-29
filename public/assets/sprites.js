@@ -212,18 +212,12 @@
   // square board cells), transparent background, figure centered on body axis.
   // See public/assets/units/README.md.
   const IMG = {
-    knight: {
-      A: "/assets/units/knight_a.png?v=8",
-      B: "/assets/units/knight_b.png?v=8",
-    },
-    mage: {
-      A: "/assets/units/mage_a.png?v=2",
-      B: "/assets/units/mage_b.png?v=2",
-    },
-    archer: {
-      A: "/assets/units/archer_a.png?v=2",
-      B: "/assets/units/archer_b.png?v=2",
-    },
+    knight:   { A: "/assets/units/knight_a.png?v=9",   B: "/assets/units/knight_b.png?v=9" },
+    spear:    { A: "/assets/units/spear_a.png?v=1",     B: "/assets/units/spear_b.png?v=1" },
+    archer:   { A: "/assets/units/archer_a.png?v=3",    B: "/assets/units/archer_b.png?v=3" },
+    mage:     { A: "/assets/units/mage_a.png?v=3",       B: "/assets/units/mage_b.png?v=3" },
+    priest:   { A: "/assets/units/priest_a.png?v=1",     B: "/assets/units/priest_b.png?v=1" },
+    engineer: { A: "/assets/units/engineer_a.png?v=1",   B: "/assets/units/engineer_b.png?v=1" },
   };
 
   const cache = {};

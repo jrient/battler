@@ -44,6 +44,11 @@ map.
 
 ## Current assets
 
-- `knight_a.png`, `knight_b.png` — knight (重甲骑士), 128×128, blue/red rim.
-- `mage_a.png`, `mage_b.png` — mage (法师), 128×128, blue/red rim.
-- `archer_a.png`, `archer_b.png` — archer (弓手), 128×128, blue/red rim.
+All six unit types ship as 128×128 raster art with blue/red team rims:
+
+- `knight_a.png`, `knight_b.png` — knight (重甲骑士).
+- `spear_a.png`, `spear_b.png` — spear (长矛兵).
+- `archer_a.png`, `archer_b.png` — archer (弓手).
+- `mage_a.png`, `mage_b.png` — mage (法师).
+- `priest_a.png`, `priest_b.png` — priest (牧师).
+- `engineer_a.png`, `engineer_b.png` — engineer (工兵).
