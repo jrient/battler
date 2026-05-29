@@ -76,11 +76,34 @@ export interface MatchIndex {
   bUnitsRemaining: number;
 }
 
+export interface IssueRecord {
+  id: string;
+  title: string;
+  body: string;
+  authorLogin: string;
+  authorId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: "open" | "closed";
+  commentCount: number;
+}
+
+export interface CommentRecord {
+  id: string;
+  issueId: string;
+  body: string;
+  authorLogin: string;
+  authorId: string;
+  createdAt: string;
+}
+
 interface StoreShape {
   users: Record<string, UserRecord>;
   commanders: Record<string, CommanderRecord>;
   matches: Record<string, MatchIndex>;
   simulationLastAtByCommander: Record<string, string>;
+  issues: Record<string, IssueRecord>;
+  comments: Record<string, CommentRecord>;
 }
 
 const EMPTY: StoreShape = {
@@ -88,6 +111,8 @@ const EMPTY: StoreShape = {
   commanders: {},
   matches: {},
   simulationLastAtByCommander: {},
+  issues: {},
+  comments: {},
 };
 
 let state: StoreShape = EMPTY;
@@ -148,6 +173,8 @@ function migrateInPlace(s: StoreShape): void {
   if (!s.commanders) s.commanders = {};
   if (!s.matches) s.matches = {};
   if (!s.simulationLastAtByCommander) s.simulationLastAtByCommander = {};
+  if (!s.issues) s.issues = {};
+  if (!s.comments) s.comments = {};
 
   for (const c of Object.values(s.commanders)) {
     const anyC = c as unknown as Record<string, unknown>;
@@ -187,10 +214,10 @@ function ensureLoaded(): void {
       state = JSON.parse(raw) as StoreShape;
       migrateInPlace(state);
     } catch {
-      state = { ...EMPTY, users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {} };
+      state = { users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {}, issues: {}, comments: {} };
     }
   } else {
-    state = { users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {} };
+    state = { users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {}, issues: {}, comments: {} };
   }
   loaded = true;
   flush();
@@ -534,4 +561,63 @@ export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): Matc
     .filter((m) => myCmdIds.has(m.participantA.commanderId) || myCmdIds.has(m.participantB.commanderId))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return all.slice(offset, offset + limit);
+}
+
+// ===== Issues =====
+
+export function createIssue(opts: { title: string; body: string; authorLogin: string; authorId: string }): IssueRecord {
+  ensureLoaded();
+  const now = new Date().toISOString();
+  const rec: IssueRecord = {
+    id: "iss_" + nanoid(8),
+    title: opts.title,
+    body: opts.body,
+    authorLogin: opts.authorLogin,
+    authorId: opts.authorId,
+    createdAt: now,
+    updatedAt: now,
+    status: "open",
+    commentCount: 0,
+  };
+  state.issues[rec.id] = rec;
+  flush();
+  return rec;
+}
+
+export function listIssues(limit = 50, offset = 0): IssueRecord[] {
+  ensureLoaded();
+  return Object.values(state.issues)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(offset, offset + limit);
+}
+
+export function getIssue(id: string): IssueRecord | null {
+  ensureLoaded();
+  return state.issues[id] ?? null;
+}
+
+export function addComment(opts: { issueId: string; body: string; authorLogin: string; authorId: string }): CommentRecord | null {
+  ensureLoaded();
+  const issue = state.issues[opts.issueId];
+  if (!issue) return null;
+  const rec: CommentRecord = {
+    id: "cmt_" + nanoid(8),
+    issueId: opts.issueId,
+    body: opts.body,
+    authorLogin: opts.authorLogin,
+    authorId: opts.authorId,
+    createdAt: new Date().toISOString(),
+  };
+  state.comments[rec.id] = rec;
+  issue.commentCount++;
+  issue.updatedAt = rec.createdAt;
+  flush();
+  return rec;
+}
+
+export function listComments(issueId: string): CommentRecord[] {
+  ensureLoaded();
+  return Object.values(state.comments)
+    .filter((c) => c.issueId === issueId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
