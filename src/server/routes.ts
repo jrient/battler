@@ -7,7 +7,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import { runMatch } from "../engine/battle.js";
+import { runMatch, firstSideFromSeed } from "../engine/battle.js";
 import { CompileError, loadAgent, wrapAgentAsDecideFn } from "../sandbox/runner.js";
 import { toAgentJson } from "../engine/replay.js";
 import { BOTS, listBots, loadBotCode } from "../bots/registry.js";
@@ -274,6 +274,7 @@ app.get("/api/me/matches", (c) => {
       participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
       participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
       resultA: m.resultA,
+      firstSide: firstSideFromSeed(m.seed),
       summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
     })),
   });
@@ -601,12 +602,16 @@ app.get("/api/commanders/:id/matches", (c) => {
   return c.json(matches.map((m) => {
     const isA = m.participantA.commanderId === id;
     const myResult = isA ? m.resultA : (m.resultA === "win" ? "loss" : m.resultA === "loss" ? "win" : "draw");
+    const opp = isA ? m.participantB : m.participantA;
     return {
       matchId: m.matchId,
       createdAt: m.createdAt,
       type: m.type,
-      opponent: isA ? m.participantB.submittedBy : m.participantA.submittedBy,
+      opponent: opp.submittedBy,
+      opponentName: resolveDisplayName(opp.commanderId, opp.submittedBy),
       result: myResult,
+      // Did THIS commander move first (won the coin flip) in this match?
+      iMovedFirst: isA ? firstSideFromSeed(m.seed) === "A" : firstSideFromSeed(m.seed) === "B",
       summary: {
         totalTurns: m.totalTurns,
         myUnitsRemaining: isA ? m.aUnitsRemaining : m.bUnitsRemaining,
@@ -631,6 +636,9 @@ app.get("/api/matches", (c) => {
       participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
       participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
       resultA: m.resultA,
+      // Derive from seed so it's present even for matches indexed before the
+      // firstSide field existed (the engine picks first-mover purely from seed).
+      firstSide: firstSideFromSeed(m.seed),
       summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
     })),
   });
@@ -646,6 +654,7 @@ app.get("/api/matches/:id/replay", (c) => {
     createdAt: m.createdAt,
     participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, version: m.participantA.version, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
     participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, version: m.participantB.version, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
+    firstSide: firstSideFromSeed(m.seed),
     turnSnapshots: m.agentJsonForA.turnSnapshots ?? [],
     events: m.agentJsonForA.events,
     summary: m.agentJsonForA.summary,
@@ -1086,7 +1095,7 @@ async function runChallenge(c: Context, cmd: CommanderRecord, body: unknown): Pr
   // from being computed second.
   const aResult = agentJsonA.result as Outcome;
   const myOldScore = cmd.rank.score;
-  const myUpdate = computeNewRank(cmd.rank, opponentScore, aResult);
+  const myUpdate = computeNewRank(cmd.rank, opponentScore, aResult, opponentCmd === null);
   applyRankUpdate(cmd.id, myUpdate.rank);
 
   let oppUpdate: ReturnType<typeof computeNewRank> | null = null;

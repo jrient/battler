@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClash — Battle Replay</title>
   <link rel="stylesheet" href="/assets/shared.css?v=1">
-  <link rel="stylesheet" href="/replay.css?v=8">
+  <link rel="stylesheet" href="/replay.css?v=13">
   <script src="/assets/i18n.js?v=1"></script>
   <script src="/assets/api.js?v=1"></script>
   <script src="/assets/nav.js?v=1"></script>
@@ -37,6 +37,13 @@
       <div id="main-area">
         <div id="board-container">
           <div id="board"></div>
+          <div id="coin-intro" class="hidden">
+            <div class="coin-stage">
+              <div class="coin"></div>
+              <div class="coin-caption" data-i18n="replay.coin.flipping">抛硬币中…</div>
+              <div class="coin-result"></div>
+            </div>
+          </div>
         </div>
         <aside id="sidebar">
           <div id="turn-info">
@@ -46,11 +53,13 @@
           <div id="army-header">
             <div class="army-col side-a">
               <span class="dot blue"></span>
-              <span id="sideA-name" data-i18n="replay.side_a.default">蓝方</span>
+              <span id="sideA-name" class="army-name" data-i18n="replay.side_a.default">蓝方</span>
+              <span id="mover-badge-a" class="mover-badge hidden"></span>
             </div>
             <div class="vs">VS</div>
             <div class="army-col side-b">
-              <span id="sideB-name" data-i18n="replay.side_b.default">红方</span>
+              <span id="mover-badge-b" class="mover-badge hidden"></span>
+              <span id="sideB-name" class="army-name" data-i18n="replay.side_b.default">红方</span>
               <span class="dot red"></span>
             </div>
           </div>
@@ -64,11 +73,13 @@
             </div>
           </div>
           <div id="match-summary">
-            <h3 data-i18n="replay.summary.title">战局摘要</h3>
             <div id="summary-content"></div>
           </div>
+          <div id="combat-stats">
+            <h3 data-i18n="replay.stats.title">战斗统计</h3>
+            <div id="stats-content"></div>
+          </div>
           <div id="roster">
-            <h3 data-i18n="replay.roster.title">单位列表</h3>
             <div class="roster-label" id="roster-label-a">⚔ A</div>
             <div id="roster-a" class="roster-group"></div>
             <div class="roster-label" id="roster-label-b">🛡 B</div>
@@ -101,6 +112,6 @@
   <div id="footer-mount"></div>
 
   <script src="/assets/sprites.js?v=3"></script>
-  <script src="/replay.js?v=10"></script>
+  <script src="/replay.js?v=14"></script>
 </body>
 </html>

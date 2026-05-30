@@ -3,8 +3,15 @@ import type { RankInfo } from "../server/store.js";
 export type Outcome = "win" | "loss" | "draw";
 
 const PLACEMENT_MATCHES = 5;
-const K_PLACEMENT = 64;
-const K_NORMAL = 32;
+// K-factors deliberately kept low: this is an agent ladder where strong bots can
+// be farmed, so a fast climb would inflate the whole ladder. Lower K = a slower,
+// harder-earned rise that PvP results dominate.
+const K_PLACEMENT = 32;
+const K_NORMAL = 20;
+// Bots never lose rank, so points won off them are net-new (inflationary). We damp
+// only the POSITIVE delta from a bot match — bots are a skill gate, not a farm.
+// Losses to bots and all PvP results are full-weight (PvP is zero-sum).
+const BOT_WIN_DAMP = 0.5;
 
 // Fixed scores for bot opponents. Used as the opponent score in ELO
 // calculation and as their tier label. Bots themselves never gain or
@@ -38,11 +45,15 @@ export function computeNewRank(
   current: RankInfo,
   opponentScore: number,
   outcome: Outcome,
+  opponentIsBot = false,
 ): RankUpdate {
   const k = current.placementMatches < PLACEMENT_MATCHES ? K_PLACEMENT : K_NORMAL;
   const expected = expectedScore(current.score, opponentScore);
   const actual = actualScore(outcome);
-  const delta = Math.round(k * (actual - expected));
+  let raw = k * (actual - expected);
+  // Halve only point GAINS against bots (anti-inflation); penalties stay full.
+  if (opponentIsBot && raw > 0) raw *= BOT_WIN_DAMP;
+  const delta = Math.round(raw);
   const newScore = Math.max(0, current.score + delta);
 
   const next: RankInfo = {

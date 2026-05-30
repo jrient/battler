@@ -33,13 +33,19 @@ const PROJECTILE_TYPES = {
 };
 
 class ReplayApp {
-  constructor() {
+  constructor(opts = {}) {
+    // Embedded mode (e.g. the arena page) reuses the same stage markup/IDs but
+    // must NOT rewrite the URL or read a match-id input header.
+    this.embedded = !!opts.embedded;
+    // Optional callback fired once when autoplay plays through to the end.
+    this.onComplete = opts.onComplete || null;
     this.data = null;
+    this.coin = null;
     this.playing = false;
     this.speed = 4;
     this.turnIndex = 0;
     this.phaseIndex = -1;
-    this.autoplay = new URLSearchParams(location.search).has('autoplay');
+    this.autoplay = opts.autoplay ?? new URLSearchParams(location.search).has('autoplay');
     this.unitElements = {};
     this.selectedUnitId = null;
     this.animating = false;
@@ -50,25 +56,30 @@ class ReplayApp {
   }
 
   init() {
-    document.getElementById("loadBtn").addEventListener("click", () => this.loadMatch());
-    document.getElementById("matchIdInput").addEventListener("keydown", (e) => {
+    // The match-id input header only exists on the standalone replay page.
+    const loadBtn = document.getElementById("loadBtn");
+    const matchIdInput = document.getElementById("matchIdInput");
+    if (loadBtn) loadBtn.addEventListener("click", () => this.loadMatch());
+    if (matchIdInput) matchIdInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") this.loadMatch();
     });
     document.getElementById("btnPlay").addEventListener("click", () => this.togglePlay());
     document.getElementById("btnNext").addEventListener("click", () => this.stepForward());
     document.getElementById("btnPrev").addEventListener("click", () => this.stepBackward());
-    document.getElementById("btnReset").addEventListener("click", () => this.goToStart());
+    document.getElementById("btnReset").addEventListener("click", () => { this.goToStart(); this.playCoinIntro(); });
     document.getElementById("btnEnd").addEventListener("click", () => this.goToEnd());
     document.getElementById("turnSlider").addEventListener("input", (e) => this.onSliderChange(e));
     document.getElementById("speedSelect").addEventListener("change", (e) => {
       this.speed = parseFloat(e.target.value);
     });
 
-    // matchId comes from the URL path /:lang/replay/:id
-    const pathMatch = window.location.pathname.match(/^\/(zh|en)\/replay\/([\w-]+)$/);
-    if (pathMatch) {
-      document.getElementById("matchIdInput").value = pathMatch[2];
-      this.loadMatch();
+    // matchId comes from the URL path /:lang/replay/:id (standalone page only)
+    if (!this.embedded) {
+      const pathMatch = window.location.pathname.match(/^\/(zh|en)\/replay\/([\w-]+)$/);
+      if (pathMatch) {
+        document.getElementById("matchIdInput").value = pathMatch[2];
+        this.loadMatch();
+      }
     }
 
     this.buildBoard();
@@ -140,9 +151,9 @@ class ReplayApp {
     return attacks;
   }
 
-  async loadMatch() {
+  async loadMatch(idOverride) {
     await window.i18nReady;
-    const matchId = document.getElementById("matchIdInput").value.trim();
+    const matchId = (idOverride || document.getElementById("matchIdInput")?.value || "").trim();
     if (!matchId) return;
 
     document.getElementById("loading").classList.remove("hidden");
@@ -156,12 +167,15 @@ class ReplayApp {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
       this.buildEventsByTurn();
+      this.coin = this.parseCoin();
 
-      // Canonicalize URL: /:lang/replay/:id
-      const lang = (window.i18n && window.i18n.lang) || "zh";
-      const canonical = `/${lang}/replay/${matchId}`;
-      if (window.location.pathname !== canonical) {
-        history.replaceState(null, "", canonical);
+      // Canonicalize URL: /:lang/replay/:id (skip when embedded in another page)
+      if (!this.embedded) {
+        const lang = (window.i18n && window.i18n.lang) || "zh";
+        const canonical = `/${lang}/replay/${matchId}`;
+        if (window.location.pathname !== canonical) {
+          history.replaceState(null, "", canonical);
+        }
       }
 
       document.getElementById("loading").classList.add("hidden");
@@ -175,11 +189,13 @@ class ReplayApp {
       this.renderMatchInfo();
       this.renderEvents();
       this.goToStart();
-      if (this.autoplay) {
-        this.speed = 8;
-        document.getElementById("speedSelect").value = "8";
-        setTimeout(() => this.togglePlay(), 800);
-      }
+      this.playCoinIntro(() => {
+        if (this.autoplay) {
+          this.speed = 8;
+          document.getElementById("speedSelect").value = "8";
+          this.togglePlay();
+        }
+      });
     } catch (err) {
       document.getElementById("loading").classList.add("hidden");
       document.getElementById("error").classList.remove("hidden");
@@ -194,6 +210,23 @@ class ReplayApp {
     document.getElementById("sideA-name").textContent = pA.displayName || pA.submittedBy || t("replay.side_a.default");
     document.getElementById("sideB-name").textContent = pB.displayName || pB.submittedBy || t("replay.side_b.default");
 
+    const badgeA = document.getElementById("mover-badge-a");
+    const badgeB = document.getElementById("mover-badge-b");
+    if (this.coin && badgeA && badgeB) {
+      const firstIsA = this.coin.firstSide === "A";
+      const firstTxt = t("replay.coin.first");
+      const secondTxt = t("replay.coin.second", { bonus: this.coin.bonus });
+      badgeA.textContent = firstIsA ? firstTxt : secondTxt;
+      badgeB.textContent = firstIsA ? secondTxt : firstTxt;
+      badgeA.className = `mover-badge ${firstIsA ? "first" : "second"}`;
+      badgeB.className = `mover-badge ${firstIsA ? "second" : "first"}`;
+      badgeA.classList.remove("hidden");
+      badgeB.classList.remove("hidden");
+    } else {
+      if (badgeA) badgeA.classList.add("hidden");
+      if (badgeB) badgeB.classList.add("hidden");
+    }
+
     const summary = document.getElementById("summary-content");
     const result = d.summary;
     const resultBadge = result.myUnitsRemaining > result.enemyUnitsRemaining ? "win" :
@@ -201,15 +234,129 @@ class ReplayApp {
     const resultText = t(`replay.summary.result_${resultBadge}`);
 
     summary.innerHTML = `
-      <div><span class="result-badge ${resultBadge}">${resultText}</span></div>
-      <div>${t("replay.summary.total_turns")}: ${result.totalTurns}</div>
-      <div>${t("replay.summary.remaining", { a: result.myUnitsRemaining, b: result.enemyUnitsRemaining })}</div>
-      <div>${t("replay.summary.decisive", { turn: result.decisiveTurn })}</div>
+      <div class="summary-head">
+        <span class="result-badge ${resultBadge}">${resultText}</span>
+        <span class="summary-sub">${t("replay.summary.decisive_short", { turn: result.decisiveTurn })}</span>
+      </div>
+      <div class="summary-grid">
+        <div class="sg-row"><span class="sg-k">${t("replay.summary.total_turns")}</span><span class="sg-v">${result.totalTurns}</span></div>
+        <div class="sg-row"><span class="sg-k"><i class="dot blue"></i>${t("replay.summary.blue_remaining")}</span><span class="sg-v st-blue">${result.myUnitsRemaining}</span></div>
+        <div class="sg-row"><span class="sg-k"><i class="dot red"></i>${t("replay.summary.red_remaining")}</span><span class="sg-v st-red">${result.enemyUnitsRemaining}</span></div>
+      </div>
     `;
 
     const slider = document.getElementById("turnSlider");
     slider.max = (d.turnSnapshots?.length || 1) - 1;
     slider.value = 0;
+
+    this.computeCombatStats();
+    this.renderCombatStats();
+  }
+
+  // Extract coin-flip result from the [COIN] event (absolute sides: A=blue, B=red).
+  // Returns null for matches that predate the coin flip (old simultaneous engine).
+  parseCoin() {
+    const ev = (this.data?.events || []).find((e) => e.startsWith("[COIN]"));
+    if (!ev) return null;
+    const m = ev.match(/\[COIN\]\s+(A|B)\s+won the toss.*?\(\+(\d+)\s*gold\)/);
+    if (!m) return null;
+    return { firstSide: m[1], bonus: Number(m[2]) };
+  }
+
+  // Opening coin-flip flourish: a spinning coin that settles on the toss winner,
+  // then a result card. Calls onDone after it dismisses (click or timeout). With
+  // no coin data (old match) it dismisses immediately so autoplay still runs.
+  playCoinIntro(onDone) {
+    const overlay = document.getElementById("coin-intro");
+    if (!this.coin || !overlay) { if (onDone) onDone(); return; }
+
+    const nameA = document.getElementById("sideA-name").textContent;
+    const nameB = document.getElementById("sideB-name").textContent;
+    const firstIsA = this.coin.firstSide === "A";
+    const firstName = firstIsA ? nameA : nameB;
+    const secondName = firstIsA ? nameB : nameA;
+    const firstColor = firstIsA ? "blue" : "red";
+    const secondColor = firstIsA ? "red" : "blue";
+    const secondTxt = t("replay.coin.second", { bonus: this.coin.bonus });
+
+    overlay.querySelector(".coin-result").innerHTML =
+      `<div class="coin-line"><i class="dot ${firstColor}"></i><b>${firstName}</b>&nbsp;${t("replay.coin.first")}</div>` +
+      `<div class="coin-line"><i class="dot ${secondColor}"></i><b>${secondName}</b>&nbsp;${secondTxt}</div>` +
+      `<div class="coin-hint">${t("replay.coin.hint")}</div>`;
+
+    const coinEl = overlay.querySelector(".coin");
+    coinEl.classList.remove("win-blue", "win-red");
+    overlay.classList.remove("hidden", "settled");
+    overlay.classList.add("flipping");
+
+    clearTimeout(this._coinSettleT);
+    clearTimeout(this._coinDismissT);
+    let finished = false;
+
+    this._coinSettleT = setTimeout(() => {
+      overlay.classList.remove("flipping");
+      overlay.classList.add("settled");
+      coinEl.classList.add(firstIsA ? "win-blue" : "win-red");
+    }, 1050);
+
+    const dismiss = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(this._coinSettleT);
+      clearTimeout(this._coinDismissT);
+      overlay.classList.add("hidden");
+      overlay.classList.remove("flipping", "settled");
+      overlay.onclick = null;
+      if (onDone) onDone();
+    };
+    this._coinDismissT = setTimeout(dismiss, 3000);
+    overlay.onclick = dismiss;
+  }
+
+  // Tally total damage dealt and HP healed across the whole match,
+  // grouped by side (A = blue / my, B = red / enemy) and unit type.
+  computeCombatStats() {
+    const stats = { A: {}, B: {} };
+    const add = (id, key, amount) => {
+      const m = id.match(/^(my|enemy)\.(\w+)_\d+$/);
+      if (!m) return;
+      const side = m[1] === "my" ? "A" : "B";
+      const bucket = (stats[side][m[2]] ||= { dmg: 0, heal: 0 });
+      bucket[key] += amount;
+    };
+    for (const ev of (this.data?.events || [])) {
+      let m;
+      if ((m = ev.match(/\[atk\]\s+(\S+)\s+attacked\s+\S+\s+for\s+(\d+)\s+dmg/))) add(m[1], "dmg", +m[2]);
+      else if ((m = ev.match(/\[atk\]\s+(\S+)\s+pierce hit\s+\S+\s+for\s+(\d+)\s+dmg/))) add(m[1], "dmg", +m[2]);
+      else if ((m = ev.match(/\[atk\]\s+(\S+)\s+healed\s+\S+\s+\+(\d+)/))) add(m[1], "heal", +m[2]);
+    }
+    this.combatStats = stats;
+  }
+
+  renderCombatStats() {
+    const el = document.getElementById("stats-content");
+    if (!el || !this.combatStats) return;
+    const order = ["knight", "spear", "archer", "mage", "priest", "engineer"];
+
+    const renderCol = (side, dotClass) => {
+      const s = this.combatStats[side];
+      const totDmg = order.reduce((a, tp) => a + (s[tp]?.dmg || 0), 0);
+      const rows = order.filter(tp => s[tp] && (s[tp].dmg || s[tp].heal)).map(tp => {
+        const b = s[tp];
+        const dmg = b.dmg ? `<span class="st-dmg">${b.dmg}</span>` : "";
+        const heal = b.heal ? `<span class="st-heal">${b.heal}</span>` : "";
+        return `<div class="stat-row" title="${UNIT_NAMES[tp]}">
+          <span class="stat-ico" style="background-image:url('${spriteURL(tp, side)}')"></span>
+          <span class="stat-vals">${dmg}${heal}</span>
+        </div>`;
+      }).join("") || `<div class="stat-empty">—</div>`;
+      return `<div class="stats-col">
+        <div class="stats-col-head"><span class="dot ${dotClass}"></span><span class="st-dmg">${totDmg}</span></div>
+        ${rows}
+      </div>`;
+    };
+
+    el.innerHTML = `<div class="stats-cols">${renderCol("A", "blue")}${renderCol("B", "red")}</div>`;
   }
 
   renderEvents() {
@@ -531,6 +678,8 @@ class ReplayApp {
       if (!advanced) {
         this.playing = false;
         this.updateUI();
+        // Fired once when autoplay reaches the natural end (not on manual pause).
+        if (typeof this.onComplete === "function") { const cb = this.onComplete; this.onComplete = null; cb(); }
         break;
       }
       const delay = this.getPhaseDelay();
@@ -664,7 +813,22 @@ class ReplayApp {
   }
 
   playAttackEffects(prevSnapshot, currSnapshot) {
-    const attacks = this.parseAttackEvents(this.turnIndex + 1);
+    // A round contains two attack phases (first mover, then second mover), but
+    // parseAttackEvents returns every [atk] line for the whole round. Scope to
+    // THIS phase by keeping only attacks whose target actually lost HP between
+    // this phase's prev and curr snapshots. First and second movers hit disjoint
+    // sides, so this cleanly separates the two attack phases (and avoids
+    // re-rendering the same projectiles twice per round).
+    const hpBefore = {};
+    for (const u of prevSnapshot) hpBefore[u.id] = u.hp;
+    const hpAfter = {};
+    for (const u of currSnapshot) hpAfter[u.id] = u.hp;
+    const attacks = this.parseAttackEvents(this.turnIndex + 1).filter((a) => {
+      const before = hpBefore[a.targetId];
+      const after = hpAfter[a.targetId];
+      return before !== undefined && after !== undefined && after < before;
+    });
+
     const prevMap = {};
     for (const u of prevSnapshot) prevMap[u.id] = u;
 
@@ -732,5 +896,9 @@ class ReplayApp {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  window.replayApp = new ReplayApp();
+  // Auto-init only on the standalone replay page (identified by its match-id
+  // input header). Embedders like the arena construct ReplayApp themselves.
+  if (document.getElementById("matchIdInput")) {
+    window.replayApp = new ReplayApp();
+  }
 });

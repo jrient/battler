@@ -71,6 +71,8 @@ export interface MatchIndex {
   participantB: { commanderId: string; submittedBy: string; version: number };
   // A-side perspective. B's view is the mirror (result inverted, units swapped).
   resultA: "win" | "loss" | "draw";
+  // Coin-flip winner who moved first every round.
+  firstSide: "A" | "B";
   totalTurns: number;
   aUnitsRemaining: number;
   bUnitsRemaining: number;
@@ -488,6 +490,7 @@ function indexFromRecord(rec: MatchRecord): MatchIndex {
     participantA: rec.participantA,
     participantB: rec.participantB,
     resultA: rec.agentJsonForA.result,
+    firstSide: rec.agentJsonForA.iMovedFirst ? "A" : "B",
     totalTurns: rec.agentJsonForA.summary.totalTurns,
     aUnitsRemaining: rec.agentJsonForA.summary.myUnitsRemaining,
     bUnitsRemaining: rec.agentJsonForA.summary.enemyUnitsRemaining,

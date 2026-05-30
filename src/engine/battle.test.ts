@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { runMatch } from "./battle.js";
-import { MAX_TURNS, BUY_TURNS, STALE_TURNS_LIMIT } from "./units.js";
+import {
+  MAX_TURNS,
+  BUY_TURNS,
+  STALE_TURNS_LIMIT,
+  STARTING_MONEY,
+  MONEY_INCOME_PER_TURN,
+  SECOND_MOVER_BONUS,
+} from "./units.js";
 import type { Action, DecideCtx, DecideFn } from "./types.js";
 
 // An agent that buys `count` archers in the opening, then does nothing. Two such
@@ -69,5 +76,57 @@ describe("stalemate detection does not affect decisive matches", () => {
     const out = runMatch({ decideA: rusher, decideB: idleArmy(1), seed: 7, matchId: "test_decisive" });
     expect(out.events.some((e) => e.includes("elimination"))).toBe(true);
     expect(out.winner).toBe("A");
+  });
+});
+
+describe("coin flip + alternating turns", () => {
+  it("flips for turn order and compensates the second mover with bonus gold", () => {
+    const seen: Record<string, { isFirst: boolean; money: number }> = {};
+    const probe = (label: "A" | "B"): DecideFn => (ctx: DecideCtx): Action[] => {
+      if (ctx.turn === 1) seen[label] = { isFirst: ctx.isFirstMover, money: ctx.myMoney };
+      return [];
+    };
+    const out = runMatch({ decideA: probe("A"), decideB: probe("B"), seed: 12345, matchId: "test_coin" });
+
+    // Exactly one coin event is emitted.
+    expect(out.events.filter((e) => e.startsWith("[COIN]")).length).toBe(1);
+    // Exactly one side moves first.
+    expect(seen.A!.isFirst).not.toBe(seen.B!.isFirst);
+
+    // Turn-1 money = starting + one income tick, plus the bonus for the second mover.
+    const base = STARTING_MONEY + MONEY_INCOME_PER_TURN;
+    const firstLabel = seen.A!.isFirst ? "A" : "B";
+    const secondLabel = seen.A!.isFirst ? "B" : "A";
+    expect(seen[firstLabel]!.money).toBe(base);
+    expect(seen[secondLabel]!.money).toBe(base + SECOND_MOVER_BONUS);
+  });
+
+  it("lets the second mover react to the first mover's move within the same round", () => {
+    // The first mover steps its archer one cell each round; the second mover must
+    // observe that post-move position (not the round-start position) when it acts.
+    const movedTo: Record<number, [number, number]> = {};
+    let comparisons = 0;
+    let mismatch = false;
+    const probe = (ctx: DecideCtx): Action[] => {
+      if (ctx.turn === 1 && ctx.myUnits.length === 0) return [{ action: "buy", unitType: "archer" }];
+      if (ctx.myUnits.length === 0) return [];
+      if (ctx.isFirstMover) {
+        const u = ctx.myUnits[0]!;
+        const dx = u.pos[0] < 8 ? 1 : -1;
+        const tgt: [number, number] = [u.pos[0] + dx, u.pos[1]];
+        movedTo[ctx.turn] = tgt;
+        return [{ unitId: u.id, action: "move", target: tgt }];
+      }
+      const e = ctx.enemyUnits[0];
+      const expected = movedTo[ctx.turn];
+      if (e && expected) {
+        comparisons++;
+        if (e.pos[0] !== expected[0] || e.pos[1] !== expected[1]) mismatch = true;
+      }
+      return [];
+    };
+    runMatch({ decideA: probe, decideB: probe, seed: 12345, matchId: "test_react" });
+    expect(comparisons).toBeGreaterThan(0);
+    expect(mismatch).toBe(false);
   });
 });

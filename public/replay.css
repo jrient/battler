@@ -120,6 +120,7 @@ body {
 
 #board-container {
   flex-shrink: 0;
+  position: relative;
   background: var(--surface);
   border-radius: 12px;
   padding: 12px;
@@ -412,7 +413,7 @@ body {
   flex-direction: column;
   gap: 8px;
   max-height: calc(var(--cell-size) * var(--board-rows) + 24px);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 #turn-info {
@@ -434,18 +435,95 @@ body {
 }
 
 #army-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid #333;
 }
 
-.army-col { display: flex; align-items: center; gap: 6px; font-weight: 600; }
-.dot { width: 10px; height: 10px; border-radius: 50%; }
+.army-col { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; min-width: 0; }
+.army-col.side-a { justify-content: flex-start; }
+.army-col.side-b { justify-content: flex-end; }
+.army-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
 .dot.blue { background: var(--blue); }
 .dot.red { background: var(--red); }
+
+/* First/second-mover badges shown next to the commander names */
+.mover-badge {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.mover-badge.first {
+  background: rgba(231, 181, 60, 0.16);
+  color: #e7b53c;
+  border: 1px solid rgba(231, 181, 60, 0.5);
+}
+.mover-badge.second {
+  background: rgba(86, 192, 122, 0.14);
+  color: #56c07a;
+  border: 1px solid rgba(86, 192, 122, 0.45);
+}
+
+/* Opening coin-flip intro overlay — covers the board until dismissed */
+#coin-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 24, 0.74);
+  backdrop-filter: blur(2px);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.coin-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+.coin {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  line-height: 1;
+  background: radial-gradient(circle at 35% 30%, #ffe9a8, #d9a02a);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.5), inset 0 0 0 3px rgba(255,255,255,0.35);
+}
+.coin::after { content: "🪙"; }
+#coin-intro.flipping .coin { animation: coin-flip 1.05s cubic-bezier(.2,.85,.25,1); }
+@keyframes coin-flip {
+  0%   { transform: rotateY(0deg) translateY(0); }
+  50%  { transform: rotateY(900deg) translateY(-28px); }
+  100% { transform: rotateY(1800deg) translateY(0); }
+}
+#coin-intro.settled .coin { animation: coin-pop .35s ease; }
+#coin-intro.settled .coin.win-blue { background: radial-gradient(circle at 35% 30%, #a9d2ff, var(--blue)); }
+#coin-intro.settled .coin.win-red  { background: radial-gradient(circle at 35% 30%, #ffabab, var(--red)); }
+@keyframes coin-pop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+.coin-caption { color: #fff; font-size: 14px; font-weight: 600; min-height: 1.2em; }
+#coin-intro.settled .coin-caption { display: none; }
+.coin-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+#coin-intro.settled .coin-result { opacity: 1; transform: none; }
+.coin-line { color: #fff; font-size: 14px; display: flex; align-items: center; gap: 6px; justify-content: center; }
+.coin-line .dot { width: 10px; height: 10px; }
+.coin-hint { color: rgba(255,255,255,0.55); font-size: 11px; margin-top: 4px; }
 .vs { color: var(--text-dim); font-size: 12px; }
 
 #unit-detail {
@@ -496,7 +574,7 @@ body {
   gap: 2px 8px;
 }
 
-#match-summary h3, #roster h3 {
+#match-summary h3, #roster h3, #combat-stats h3 {
   font-size: 13px;
   color: var(--text-dim);
   margin-bottom: 6px;
@@ -504,17 +582,57 @@ body {
   letter-spacing: 1px;
 }
 
-#summary-content {
-  font-size: 13px;
-  line-height: 1.6;
+/* Combat stats — per-side, per-unit-type damage / healing */
+.stats-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stats-col {
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  padding: 6px 7px;
 }
+.stats-col-head {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+  padding-bottom: 4px; margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.stats-col-head .dot { width: 8px; height: 8px; }
+.stat-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.stat-ico {
+  width: 18px; height: 18px; flex: 0 0 auto;
+  background-repeat: no-repeat; background-position: center; background-size: contain;
+  image-rendering: pixelated; image-rendering: crisp-edges;
+}
+.stat-vals { display: flex; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.st-dmg, .st-heal { font-weight: 600; }
+.st-dmg { color: var(--red-light); }
+.st-heal { color: var(--green-light); }
+.stat-empty { color: var(--text-dim); font-size: 11px; padding: 2px 0; }
+
+#summary-content {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.summary-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 7px;
+}
+.summary-sub { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+
+.summary-grid { display: flex; flex-direction: column; gap: 3px; }
+.sg-row { display: flex; align-items: center; justify-content: space-between; }
+.sg-k { color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+.sg-k .dot { width: 8px; height: 8px; }
+.sg-v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sg-v.st-blue { color: var(--blue-light); }
+.sg-v.st-red { color: var(--red-light); }
 
 .roster-group {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
   align-content: flex-start;
-  max-height: 42%;
+  max-height: 100px;
   overflow-y: auto;
   padding: 4px;
   background: rgba(255,255,255,0.02);
@@ -657,10 +775,11 @@ body {
 /* Result badge */
 .result-badge {
   display: inline-block;
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 13px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .result-badge.win { background: rgba(76,175,80,0.2); color: var(--hp-green); border: 1px solid var(--hp-green); }

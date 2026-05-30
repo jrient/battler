@@ -62,6 +62,11 @@ export interface DecideCtx {
   turn: number;
   history: TurnRecord[];
   rng: () => number;
+  // True if you are the coin-flip winner who moves first every round. The first
+  // mover decides on the round-start board; the second mover decides AFTER the
+  // first mover has already moved/attacked, so its myUnits/enemyUnits reflect
+  // those actions. The second mover's myMoney already includes the +10 bonus.
+  isFirstMover: boolean;
 }
 
 export interface TurnRecord {
@@ -76,6 +81,8 @@ export type DecideFn = (ctx: DecideCtx) => Action[];
 export interface MatchOutput {
   matchId: string;
   seed: number;
+  // Coin-flip winner who moves first every round (see DecideCtx.isFirstMover).
+  firstSide: Side;
   winner: Side | "draw";
   totalTurns: number;
   armyA: ArmyEntry[];

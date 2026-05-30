@@ -17,6 +17,11 @@ export const AP_PER_TURN = 10;
 export const STARTING_MONEY = 10;
 // 10 gold per turn during the buy window (flat, not scaled by turn).
 export const MONEY_INCOME_PER_TURN = 10;
+// At game start a coin flip decides turn order. The winner moves first every
+// round (an information advantage: it acts before seeing the opponent's move).
+// The loser moves second but gets this much extra starting gold as compensation.
+// Tunable — adjust after balance testing with tmp/harness.ts.
+export const SECOND_MOVER_BONUS = 10;
 
 export const UNITS: Record<UnitType, UnitDef> = {
   knight: {

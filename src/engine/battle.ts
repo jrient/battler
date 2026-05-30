@@ -7,6 +7,7 @@ import {
   AP_PER_TURN,
   STARTING_MONEY,
   MONEY_INCOME_PER_TURN,
+  SECOND_MOVER_BONUS,
   SPLASH_RADIUS,
   STALE_TURNS_LIMIT,
 } from "./units.js";
@@ -33,6 +34,14 @@ export interface RunMatchOptions {
   decideB: DecideFn;
   seed: number;
   matchId: string;
+}
+
+// Which side won the opening coin toss (moves first every round). Purely a
+// function of the seed, drawn from a dedicated rng stream so it doesn't perturb
+// gameplay rng. Exported so the API can recover first-mover for any match — even
+// ones stored before MatchIndex carried the field — straight from its seed.
+export function firstSideFromSeed(seed: number): Side {
+  return makeRng(seed ^ 0x636f696e)() < 0.5 ? "A" : "B";
 }
 
 interface ValidatedAction {
@@ -79,65 +88,113 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
   let lastSignature = "";
   let staleTurns = 0;
 
-  let moneyA = STARTING_MONEY;
-  let moneyB = STARTING_MONEY;
+  // Coin flip (deterministic from seed): the winner moves first every round; the
+  // loser moves second but starts with SECOND_MOVER_BONUS extra gold. Drawn from
+  // a separate rng stream so it doesn't perturb the buy-placement rng below.
+  const firstSide: Side = firstSideFromSeed(opts.seed);
+  const secondSide: Side = firstSide === "A" ? "B" : "A";
+  const moverOrder: Side[] = [firstSide, secondSide];
+
+  let moneyA = STARTING_MONEY + (secondSide === "A" ? SECOND_MOVER_BONUS : 0);
+  let moneyB = STARTING_MONEY + (secondSide === "B" ? SECOND_MOVER_BONUS : 0);
+  allEvents.push(
+    `[COIN] ${firstSide} won the toss and moves first; ${secondSide} moves second (+${SECOND_MOVER_BONUS} gold)`,
+  );
 
   for (turnIdx = 1; turnIdx <= MAX_TURNS; turnIdx++) {
     tickCooldowns(units);
-    clearDefending(units);
 
     const startSnapshot = snapshotUnits(units);
     const phases: PhaseSnapshot[] = [];
+    const turnEvents: string[] = [`[T${turnIdx}] -- turn start --`];
 
-    const aliveA = units.filter((u) => u.side === "A" && u.hp > 0);
-    const aliveB = units.filter((u) => u.side === "B" && u.hp > 0);
-
+    // Income still accrues per round to both sides during the buy window.
     if (turnIdx <= BUY_TURNS) {
       moneyA += MONEY_INCOME_PER_TURN;
       moneyB += MONEY_INCOME_PER_TURN;
     }
-    const moneyAvailA = turnIdx <= BUY_TURNS ? moneyA : 0;
-    const moneyAvailB = turnIdx <= BUY_TURNS ? moneyB : 0;
 
-    const ctxA = buildCtx(aliveA, aliveB, armyEntries(units, "A"), armyEntries(units, "B"), turnIdx, turns, opts.seed, "A", moneyAvailA);
-    const ctxB = buildCtx(aliveB, aliveA, armyEntries(units, "B"), armyEntries(units, "A"), turnIdx, turns, opts.seed, "B", moneyAvailB);
+    // Per-round action log, kept in fixed A/B slots regardless of who moved
+    // first, so history/agent.json stay side-stable.
+    const actionsA: Action[] = [];
+    const actionsB: Action[] = [];
+    // Buys are deferred to a single buy phase at the end of the round, preserving
+    // the "a bought unit doesn't act until next turn" rule.
+    const heldBuys: ValidatedBuy[] = [];
+    let dmgFromA = 0;
+    let dmgFromB = 0;
 
-    const rawA = safeDecide(opts.decideA, ctxA);
-    const rawB = safeDecide(opts.decideB, ctxB);
+    // Alternation: the coin-flip winner takes its whole half-turn first, then the
+    // loser decides on the already-updated board and takes its half-turn. The
+    // second mover therefore reacts to what the first mover just did this round.
+    for (const mover of moverOrder) {
+      const opp: Side = mover === "A" ? "B" : "A";
+      // Clear only THIS side's defend flags now, so a defend protects against all
+      // enemy attacks until this side acts again (symmetric for first/second).
+      clearDefending(units, mover);
 
-    const { combat: actsA, buys: buyA } = validateAndSplit(rawA, units, "A", moneyAvailA);
-    const { combat: actsB, buys: buyB } = validateAndSplit(rawB, units, "B", moneyAvailB);
+      const aliveMine = units.filter((u) => u.side === mover && u.hp > 0);
+      const aliveOpp = units.filter((u) => u.side === opp && u.hp > 0);
+      const moneyNow = mover === "A" ? moneyA : moneyB;
+      const moneyAvail = turnIdx <= BUY_TURNS ? moneyNow : 0;
 
-    const spentA = buyA.reduce((s, r) => s + r.cost, 0);
-    const spentB = buyB.reduce((s, r) => s + r.cost, 0);
-    moneyA -= spentA;
-    moneyB -= spentB;
+      const ctx = buildCtx(
+        aliveMine,
+        aliveOpp,
+        armyEntries(units, mover),
+        armyEntries(units, opp),
+        turnIdx,
+        turns,
+        opts.seed,
+        mover,
+        moneyAvail,
+        mover === firstSide,
+      );
+      const decide = mover === "A" ? opts.decideA : opts.decideB;
+      const { combat, buys } = validateAndSplit(safeDecide(decide, ctx), units, mover, moneyAvail);
 
-    const turnEvents: string[] = [];
-    const turnEventsHeader = `[T${turnIdx}] -- turn start --`;
-    turnEvents.push(turnEventsHeader);
+      const spent = buys.reduce((s, r) => s + r.cost, 0);
+      if (mover === "A") moneyA -= spent;
+      else moneyB -= spent;
+      heldBuys.push(...buys);
 
-    applyDefendIntents([...actsA, ...actsB], turnEvents);
-    phases.push({ phase: "defend", units: snapshotUnits(units) });
+      turnEvents.push(`[T${turnIdx}] -- ${mover} acts (${mover === firstSide ? "first" : "second"}) --`);
 
-    phaseMovement([...actsA, ...actsB], units, turnEvents);
-    phases.push({ phase: "move", units: snapshotUnits(units) });
+      applyDefendIntents(combat, turnEvents);
+      phases.push({ phase: "defend", units: snapshotUnits(units) });
 
-    const dmgFromA = phaseAttack(actsA, units, turnEvents);
-    const dmgFromB = phaseAttack(actsB, units, turnEvents);
-    totalDamageDealtA += dmgFromA;
-    totalDamageDealtB += dmgFromB;
-    phases.push({ phase: "attack", units: snapshotUnits(units) });
+      phaseMovement(combat, units, turnEvents);
+      phases.push({ phase: "move", units: snapshotUnits(units) });
 
-    const deaths = phaseDeath(units, turnEvents);
-    aLost += deaths.aLost;
-    bLost += deaths.bLost;
-    phases.push({ phase: "death", units: snapshotUnits(units) });
+      const dmg = phaseAttack(combat, units, turnEvents);
+      if (mover === "A") dmgFromA += dmg;
+      else dmgFromB += dmg;
+      phases.push({ phase: "attack", units: snapshotUnits(units) });
 
-    phaseBuy(buyA, units, seqCounters, rng, turnEvents);
-    phaseBuy(buyB, units, seqCounters, rng, turnEvents);
+      const deaths = phaseDeath(units, turnEvents);
+      aLost += deaths.aLost;
+      bLost += deaths.bLost;
+      phases.push({ phase: "death", units: snapshotUnits(units) });
+
+      const moverActions: Action[] = [
+        ...combat.map((a) => a.raw),
+        ...buys.map((r) => ({ action: "buy" as const, unitType: r.unitType })),
+      ];
+      if (mover === "A") actionsA.push(...moverActions);
+      else actionsB.push(...moverActions);
+
+      // If this half-turn wiped the opponent, skip the other side's half-turn —
+      // the end-of-round check below resolves the win.
+      const oppAlive = units.some((u) => u.side === opp && u.hp > 0);
+      const oppEverFielded = units.some((u) => u.side === opp);
+      if (!oppAlive && (oppEverFielded || turnIdx > BUY_TURNS)) break;
+    }
+
+    phaseBuy(heldBuys, units, seqCounters, rng, turnEvents);
     phases.push({ phase: "buy", units: snapshotUnits(units) });
 
+    totalDamageDealtA += dmgFromA;
+    totalDamageDealtB += dmgFromB;
     const turnDamage = dmgFromA + dmgFromB;
     if (turnDamage > maxDamageInTurn) {
       maxDamageInTurn = turnDamage;
@@ -145,13 +202,10 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       decisiveEvent = `T${turnIdx} dealt ${turnDamage} total damage (A→B ${dmgFromA}, B→A ${dmgFromB})`;
     }
 
-    const allActionsA = [...actsA.map((a) => a.raw), ...buyA.map((r) => ({ action: "buy" as const, unitType: r.unitType }))];
-    const allActionsB = [...actsB.map((a) => a.raw), ...buyB.map((r) => ({ action: "buy" as const, unitType: r.unitType }))];
-
     turns.push({
       turn: turnIdx,
-      myActions: allActionsA,
-      enemyActions: allActionsB,
+      myActions: actionsA,
+      enemyActions: actionsB,
       events: turnEvents,
     });
     turnSnapshots.push({ turn: turnIdx, start: startSnapshot, phases });
@@ -228,6 +282,7 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
   return {
     matchId: opts.matchId,
     seed: opts.seed,
+    firstSide,
     winner,
     totalTurns: playedTurns,
     armyA: armyEntries(units, "A"),
@@ -256,8 +311,10 @@ function tickCooldowns(units: Unit[]): void {
   }
 }
 
-function clearDefending(units: Unit[]): void {
-  for (const u of units) u.defending = false;
+function clearDefending(units: Unit[], side?: Side): void {
+  for (const u of units) {
+    if (side === undefined || u.side === side) u.defending = false;
+  }
 }
 
 function safeDecide(fn: DecideFn, ctx: DecideCtx): Action[] {
@@ -525,6 +582,7 @@ function buildCtx(
   seed: number,
   side: Side,
   money: number,
+  isFirst: boolean,
 ): DecideCtx {
   const sideRng = makeRng(seed ^ (turn * 0x9e3779b1) ^ (side === "A" ? 1 : 2));
   return {
@@ -537,6 +595,7 @@ function buildCtx(
     turn,
     history,
     rng: sideRng,
+    isFirstMover: isFirst,
   };
 }
 

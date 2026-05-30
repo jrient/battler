@@ -49,6 +49,24 @@
     .pct-cell { font-variant-numeric: tabular-nums; color: var(--text-dim); }
     .placement-cell { font-size: 11px; color: var(--gold); }
 
+    .act-cell { white-space: nowrap; text-align: right; }
+    .lb-btn {
+      display: inline-block;
+      padding: 5px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      background: transparent;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .lb-btn + .lb-btn { margin-left: 6px; }
+    .lb-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .lb-btn.primary { background: var(--gold); color: var(--bg); border-color: var(--gold); font-weight: 600; }
+    .lb-btn.primary:hover { opacity: 0.9; color: var(--bg); }
+
     .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
     .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
     .error-state { text-align: center; padding: 60px 20px; color: #f66; }
@@ -113,6 +131,10 @@
         const placement = cmd.rank.placementMatches < 5
           ? ` <span class="placement-cell">(${cmd.rank.placementMatches}/5)</span>`
           : "";
+        const cid = encodeURIComponent(cmd.commanderId);
+        const cname = encodeURIComponent(cmd.displayName);
+        const recordsUrl = `/${lang}/matches?commander=${cid}&name=${cname}`;
+        const challengeUrl = `/${lang}/arena?opponent=${cname}`;
         return `
           <tr class="${cls}">
             <td class="rank-num ${cls}">${rankNum}</td>
@@ -124,6 +146,10 @@
             <td class="stat-cell">${cmd.rank.wins ?? 0}</td>
             <td class="stat-cell">${cmd.rank.losses ?? 0}</td>
             <td class="pct-cell">${fmtPct(cmd.rank.wins ?? 0, cmd.rank.losses ?? 0)}</td>
+            <td class="act-cell">
+              <a class="lb-btn" href="${recordsUrl}">${t("leaderboard.action.records")}</a>
+              <a class="lb-btn primary" href="${challengeUrl}">${t("leaderboard.action.challenge")}</a>
+            </td>
           </tr>`;
       }
 
@@ -146,6 +172,7 @@
                   <th>${t("leaderboard.col.wins")}</th>
                   <th>${t("leaderboard.col.losses")}</th>
                   <th>${t("leaderboard.col.winrate")}</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>${commanders.map((c, i) => renderRow(c, i)).join("")}</tbody>

@@ -16,19 +16,19 @@ export const BOTS: Record<string, BotMeta> = {
   "red-charger": {
     id: "red-charger",
     displayName: "Red Charger",
-    style: "全员压前 / 集火最近敌人 / 法师抓密集阵 / 牧师治疗低血友军",
+    style: "Combined-arms blitz: an archer screen behind a knight/spear wedge that charges in to break the line; presses as first mover, collapses on overextended enemies as second mover",
     codePath: resolve(__dirname, "red-charger.js"),
   },
   "blue-turtle": {
     id: "blue-turtle",
     displayName: "Blue Turtle",
-    style: "坚守阵地 / 保护远程 / 集火来袭单位",
+    style: "Defensive wall: holds its own half behind a knight screen + priests, never chases, and kites back out of danger when it moves second",
     codePath: resolve(__dirname, "blue-turtle.js"),
   },
   "green-tactician": {
     id: "green-tactician",
     displayName: "Hermes Agent",
-    style: "威胁优先级(牧师>法师>弓手) + 碰撞感知移动 + 低血收割 + 近战先行",
+    style: "Threat-priority sniper: heavy mage wing for AOE, advances to a moderate line; pre-aims at enemy DPS as first mover, pivots onto the densest cluster as second mover",
     codePath: resolve(__dirname, "green-tactician.js"),
   },
 };

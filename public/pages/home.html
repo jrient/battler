@@ -36,10 +36,15 @@
       border-radius: 4px;
     }
     .match-row:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .match-row:hover { background: rgba(218,165,32,0.06); }
     .match-row .vs { color: var(--text-dim); font-size: 11px; }
-    .match-row .winA { color: var(--blue-light); }
-    .match-row .winB { color: var(--red-light); }
-    .match-row .draw { color: var(--text-dim); }
+    .match-row .name-a { color: var(--blue-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .match-row .name-b { color: var(--red-light); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .match-row .result-pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 4px; white-space: nowrap; }
+    .match-row .result-pill.winA { background: rgba(100,170,255,0.15); color: var(--blue-light); }
+    .match-row .result-pill.winB { background: rgba(255,100,100,0.15); color: var(--red-light); }
+    .match-row .result-pill.draw { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .match-row .first-chip { display: inline-block; padding: 0 4px; border-radius: 3px; font-size: 9px; font-weight: 700; background: rgba(218,165,32,0.16); color: var(--gold); vertical-align: middle; }
     .bot-card {
       background: rgba(255,255,255,0.03);
       border-radius: 8px;
@@ -125,7 +130,7 @@
 
       // ---- Recent matches ----
       try {
-        const data = await api.get("/api/matches?limit=8");
+        const data = await api.get("/api/matches?limit=12");
         const el = document.getElementById("recent");
         el.classList.remove("state-loading");
         if (!data.matches || data.matches.length === 0) {
@@ -135,12 +140,14 @@
             const a = m.participantA.displayName || m.participantA.submittedBy || "—";
             const b = m.participantB.displayName || m.participantB.submittedBy || "—";
             const cls = m.resultA === "win" ? "winA" : m.resultA === "loss" ? "winB" : "draw";
-            const label = m.resultA === "win" ? "A win" : m.resultA === "loss" ? "B win" : "draw";
+            const label = t(`matches.result.${m.resultA === "win" ? "win" : m.resultA === "loss" ? "loss" : "draw"}`);
+            const fa = m.firstSide === "A" ? `<span class="first-chip" title="${t("matches.first_mover_hint")}">${t("matches.first_mover")}</span> ` : "";
+            const fb = m.firstSide === "B" ? ` <span class="first-chip" title="${t("matches.first_mover_hint")}">${t("matches.first_mover")}</span>` : "";
             return `<a class="match-row" href="/${i18n.lang}/replay/${m.matchId}">
-              <span class="lb-name">${escapeHtml(a)}</span>
+              <span class="name-a">${fa}${escapeHtml(a)}</span>
               <span class="vs">VS</span>
-              <span class="lb-name" style="text-align:right">${escapeHtml(b)}</span>
-              <span class="${cls}">${label}</span>
+              <span class="name-b">${escapeHtml(b)}${fb}</span>
+              <span class="result-pill ${cls}">${label}</span>
             </a>`;
           }).join("");
         }

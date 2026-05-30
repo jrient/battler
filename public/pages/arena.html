@@ -5,127 +5,216 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentClash</title>
   <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <link rel="stylesheet" href="/replay.css?v=13">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap">
   <script src="/assets/i18n.js?v=1"></script>
   <script src="/assets/api.js?v=1"></script>
   <script src="/assets/nav.js?v=1"></script>
   <style>
-    .arena-wrap { max-width: 880px; margin: 0 auto; padding: 24px 20px; }
-    .arena-head h1 { font-size: 24px; color: var(--text); margin: 0 0 4px; }
-    .arena-head .subtitle { color: var(--text-dim); font-size: 13px; margin: 0 0 20px; }
+    :root { --font-display: "Oswald", "Segoe UI Semibold", system-ui, sans-serif; }
 
-    .picker-row {
-      display: grid;
-      grid-template-columns: 1fr 56px 1fr;
-      gap: 12px;
-      align-items: stretch;
-      margin-bottom: 16px;
+    .arena-wrap { max-width: 940px; margin: 0 auto; padding: 24px 20px; }
+    .arena-head { text-align: center; margin-bottom: 22px; }
+    .arena-head h1 {
+      font-family: var(--font-display); font-weight: 700; font-size: 30px;
+      letter-spacing: 6px; text-transform: uppercase; color: var(--text); margin: 0;
     }
-    @media (max-width: 640px) {
-      .picker-row { grid-template-columns: 1fr; }
-      .picker-row .vs-divider { display: none; }
+    .arena-head h1::after {
+      content: ""; display: block; width: 64px; height: 3px; margin: 11px auto 0;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
     }
-    .picker-col {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 16px;
+    .arena-head .subtitle { color: var(--text-dim); font-size: 13px; margin: 8px 0 0; letter-spacing: .4px; }
+
+    /* ===== VS duel ===== */
+    .duel {
+      position: relative; isolation: isolate;
+      display: grid; grid-template-columns: 1fr 92px 1fr; align-items: stretch;
+      margin-bottom: 18px; padding: 10px; border-radius: 16px;
     }
-    .picker-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .picker-col select {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      font-size: 14px;
-      box-sizing: border-box;
+    .duel-bg {
+      position: absolute; inset: 0; z-index: -1; border-radius: 16px; overflow: hidden;
+      background:
+        radial-gradient(60% 85% at 0% 50%, rgba(74,127,181,.22), transparent 62%),
+        radial-gradient(60% 85% at 100% 50%, rgba(181,74,74,.22), transparent 62%),
+        linear-gradient(180deg, rgba(255,255,255,.02), transparent);
     }
-    .opp-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+    .duel-bg::before {
+      content: ""; position: absolute; inset: 0; opacity: .5;
+      background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+      background-size: 26px 26px;
+      -webkit-mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
+      mask-image: radial-gradient(ellipse at center, #000 35%, transparent 80%);
+    }
+
+    .combatant {
+      position: relative; overflow: hidden;
+      background: linear-gradient(180deg, var(--surface), rgba(15,52,96,.35));
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 9px;
+    }
+    .combatant::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .combatant.me { animation: slideInL .55s cubic-bezier(.2,.8,.25,1) both; box-shadow: inset 0 0 44px rgba(74,127,181,.10); }
+    .combatant.foe { text-align: right; animation: slideInR .55s cubic-bezier(.2,.8,.25,1) both; box-shadow: inset 0 0 44px rgba(181,74,74,.10); }
+    .combatant.me::before { background: linear-gradient(90deg, var(--blue-light), transparent); }
+    .combatant.foe::before { background: linear-gradient(270deg, var(--red-light), transparent); }
+
+    .faction-tag { font-family: var(--font-display); font-size: 12px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; }
+    .combatant.me .faction-tag { color: var(--blue-light); }
+    .combatant.foe .faction-tag { color: var(--red-light); }
+
+    .crest { font-size: 28px; line-height: 1; filter: drop-shadow(0 0 10px currentColor); }
+    .combatant.me .crest { color: var(--blue-light); }
+    .combatant.foe .crest { color: var(--red-light); align-self: flex-end; }
+
+    .combatant-name {
+      font-family: var(--font-display); font-weight: 600; font-size: 25px; line-height: 1.05;
+      color: var(--text); text-transform: uppercase; letter-spacing: .5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 27px;
+    }
+    .combatant-name.placeholder { color: var(--text-dim); }
+    .combatant-meta { display: flex; align-items: center; gap: 10px; min-height: 22px; }
+    .combatant.foe .combatant-meta { justify-content: flex-end; }
+    .combatant-score { font-family: var(--font-display); font-weight: 600; color: var(--gold); font-size: 17px; font-variant-numeric: tabular-nums; }
+
+    .picker-field { margin-top: auto; padding-top: 6px; }
+    .picker-field-label { display: block; font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 6px; }
+    .combatant select, .opp-input-row input {
+      width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; font-family: inherit;
+      background: rgba(0,0,0,.28); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    }
+    .combatant.me select { border-color: rgba(106,159,213,.40); }
+    .combatant select:focus, .opp-input-row input:focus { outline: none; border-color: var(--gold); }
     .opp-input-row { display: flex; gap: 8px; }
-    .opp-input-row input {
-      flex: 1;
-      min-width: 0;
-      padding: 10px 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    .opp-input-row input:focus { outline: none; border-color: var(--gold); }
-    .opp-input-row input:disabled { opacity: 0.5; }
+    .opp-input-row input { flex: 1; min-width: 0; text-align: left; }
+    .opp-input-row input:disabled { opacity: .5; }
     .btn-random {
-      flex: 0 0 auto;
-      padding: 0 14px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
+      flex: 0 0 auto; padding: 0 13px; font-size: 16px; cursor: pointer; transition: transform .2s;
+      background: rgba(0,0,0,.28); color: var(--text); border: 1px solid rgba(213,106,106,.40); border-radius: 8px;
     }
-    .btn-random:hover:not(:disabled) { border-color: var(--gold); }
-    .btn-random:disabled { opacity: 0.5; cursor: not-allowed; }
-    .picker-meta { font-size: 12px; color: var(--text-dim); margin-top: 8px; min-height: 18px; }
-    .picker-meta.err { color: #f66; }
-    .vs-divider { display: flex; align-items: center; justify-content: center; color: var(--gold); font-weight: 700; font-size: 20px; }
+    .btn-random:hover:not(:disabled) { border-color: var(--gold); transform: rotate(18deg); }
+    .btn-random:disabled { opacity: .5; cursor: not-allowed; }
+    .picker-meta { font-size: 12px; color: var(--text-dim); margin-top: 7px; min-height: 16px; }
+    .picker-meta.err { color: var(--red-light); }
 
-    .fight-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 20px 0; }
+    .versus { display: flex; align-items: center; justify-content: center; position: relative; }
+    .versus-emblem {
+      position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+      background: radial-gradient(circle at 35% 30%, #2a2a44, #0c0c18);
+      border: 2px solid var(--gold);
+      box-shadow: 0 0 22px rgba(255,215,0,.35), inset 0 0 14px rgba(0,0,0,.6);
+      animation: popIn .5s .25s both;
+    }
+    .versus-emblem span { font-family: var(--font-display); font-style: italic; font-weight: 700; font-size: 22px; letter-spacing: 1px; color: var(--gold); text-shadow: 0 0 10px rgba(255,215,0,.6); }
+    .versus-emblem::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px dashed rgba(255,215,0,.35); animation: spin 9s linear infinite; }
+
+    @media (max-width: 680px) {
+      .duel { grid-template-columns: 1fr; gap: 10px; padding: 8px; }
+      .combatant.foe { text-align: left; }
+      .combatant.foe .crest { align-self: flex-start; }
+      .combatant.foe .combatant-meta { justify-content: flex-start; }
+      .versus { padding: 2px 0; }
+      .versus-emblem { width: 52px; height: 52px; }
+    }
+
+    /* ===== FIGHT cta ===== */
+    .fight-row { display: flex; flex-direction: column; align-items: center; gap: 9px; margin: 22px 0 6px; }
     .btn-fight {
-      padding: 12px 36px;
-      font-size: 16px;
-      font-weight: 700;
-      background: var(--gold);
-      color: var(--bg);
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      letter-spacing: 1px;
-      transition: opacity 0.15s;
+      position: relative; min-width: 290px; padding: 15px 40px;
+      font-family: var(--font-display); font-weight: 700; font-size: 19px; letter-spacing: 4px; text-transform: uppercase;
+      color: #1a1a10; cursor: pointer; border: none; border-radius: 10px;
+      background: linear-gradient(180deg, #ffe24d, var(--gold) 55%, #c9a300);
+      box-shadow: 0 6px 0 #8a7200, 0 10px 22px rgba(255,215,0,.25);
+      transition: transform .12s, box-shadow .12s, filter .2s;
     }
-    .btn-fight:hover:not(:disabled) { opacity: 0.9; }
-    .btn-fight:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
-    .cooldown-text { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .btn-fight::before { content: "⚔"; margin-right: 10px; }
+    .btn-fight:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 0 #8a7200, 0 14px 30px rgba(255,215,0,.4); }
+    .btn-fight:not(:disabled):active { transform: translateY(3px); box-shadow: 0 3px 0 #8a7200; }
+    .btn-fight:not(:disabled) { animation: readyPulse 1.8s ease-in-out infinite; }
+    .btn-fight:disabled {
+      background: linear-gradient(180deg, #3a3a4e, #2a2a3a); color: var(--text-dim);
+      box-shadow: 0 4px 0 rgba(0,0,0,.4); cursor: not-allowed; animation: none;
+    }
+    .cooldown-text { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; font-family: var(--font-display); letter-spacing: 1px; }
 
-    .result-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px 24px;
-      margin-top: 16px;
+    @keyframes slideInL { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+    @keyframes slideInR { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+    @keyframes popIn { from { opacity: 0; transform: scale(.4) rotate(-30deg); } to { opacity: 1; transform: none; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes readyPulse {
+      0%,100% { box-shadow: 0 6px 0 #8a7200, 0 10px 22px rgba(255,215,0,.25); }
+      50% { box-shadow: 0 6px 0 #8a7200, 0 10px 32px rgba(255,215,0,.55); }
     }
-    .result-banner {
-      text-align: center;
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      padding: 12px 0;
-      border-radius: 8px;
-      margin-bottom: 16px;
-    }
-    .result-banner.win { background: rgba(106, 191, 106, 0.15); color: var(--green-light); }
-    .result-banner.loss { background: rgba(213, 106, 106, 0.15); color: var(--red-light); }
-    .result-banner.draw { background: rgba(180, 180, 180, 0.15); color: var(--text-dim); }
 
-    .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    @media (max-width: 540px) { .rank-grid { grid-template-columns: 1fr; } }
-    .rank-cell {
-      padding: 12px 14px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    /* ===== Battle verdict (floating popup over the battle stage) ===== */
+    .verdict-overlay {
+      position: fixed; inset: 0; z-index: 1000; padding: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8,8,16,.72); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+      animation: overlayIn .3s ease both;
     }
-    .rank-cell .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .rank-cell .who { font-size: 14px; color: var(--text); font-weight: 600; margin-bottom: 6px; }
-    .rank-cell .stats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .rank-cell .score { font-size: 17px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
-    .rank-cell .delta { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 4px; font-variant-numeric: tabular-nums; }
-    .rank-cell .delta.up { background: rgba(106,191,106,0.15); color: var(--green-light); }
-    .rank-cell .delta.down { background: rgba(213,106,106,0.15); color: var(--red-light); }
-    .rank-cell .delta.zero { background: rgba(180,180,180,0.15); color: var(--text-dim); }
-    .rank-cell .placement-note { color: var(--text-dim); font-size: 11px; margin-left: 4px; }
+    .verdict-overlay .verdict-card { margin-top: 0; max-width: 560px; width: 100%; box-shadow: 0 24px 70px rgba(0,0,0,.65); }
+    .verdict-close {
+      position: absolute; top: 9px; right: 12px; z-index: 2;
+      background: transparent; border: none; color: var(--text-dim); font-size: 19px; line-height: 1; cursor: pointer;
+    }
+    .verdict-close:hover { color: var(--text); }
+    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .verdict-card {
+      position: relative; overflow: hidden; margin-top: 16px;
+      border: 1px solid var(--border); border-radius: 16px;
+      background: linear-gradient(180deg, var(--surface), rgba(15,52,96,.30));
+      padding: 0 0 8px; animation: cardRise .5s cubic-bezier(.2,.8,.25,1) both;
+    }
+    .verdict-glow { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+    .verdict-win  .verdict-glow { background: radial-gradient(85% 60% at 50% 0%, rgba(106,191,106,.30), transparent 70%); }
+    .verdict-loss .verdict-glow { background: radial-gradient(85% 60% at 50% 0%, rgba(213,106,106,.30), transparent 70%); }
+    .verdict-draw .verdict-glow { background: radial-gradient(85% 60% at 50% 0%, rgba(180,180,180,.18), transparent 70%); }
+    .verdict-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 1;
+    }
+    .verdict-win::before  { background: linear-gradient(90deg, transparent, var(--green-light), transparent); }
+    .verdict-loss::before { background: linear-gradient(90deg, transparent, var(--red-light), transparent); }
+    .verdict-draw::before { background: linear-gradient(90deg, transparent, var(--text-dim), transparent); }
+
+    .verdict-banner { position: relative; z-index: 1; text-align: center; padding: 24px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .verdict-icon { font-size: 34px; line-height: 1; filter: drop-shadow(0 0 12px currentColor); animation: iconPop .5s .15s both; }
+    .verdict-win .verdict-icon { color: var(--gold); }
+    .verdict-loss .verdict-icon { color: var(--red-light); }
+    .verdict-text { font-family: var(--font-display); font-weight: 700; font-size: 44px; letter-spacing: 8px; text-transform: uppercase; line-height: 1; }
+    .verdict-win  .verdict-text { color: var(--green-light); text-shadow: 0 0 26px rgba(106,191,106,.5); }
+    .verdict-loss .verdict-text { color: var(--red-light);   text-shadow: 0 0 26px rgba(213,106,106,.5); }
+    .verdict-draw .verdict-text { color: var(--text-dim); }
+    .verdict-banner::after { content: ""; width: 120px; height: 2px; margin-top: 10px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+
+    .faceoff { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; padding: 6px 18px 4px; }
+    .faceoff-side { position: relative; overflow: hidden; background: rgba(0,0,0,.25); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; }
+    .faceoff-side::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .faceoff-side.me::before { background: linear-gradient(90deg, var(--blue-light), transparent); }
+    .faceoff-side.foe { text-align: right; }
+    .faceoff-side.foe::before { background: linear-gradient(270deg, var(--red-light), transparent); }
+    .fo-label { font-family: var(--font-display); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; }
+    .faceoff-side.me .fo-label { color: var(--blue-light); }
+    .faceoff-side.foe .fo-label { color: var(--red-light); }
+    .fo-name { font-family: var(--font-display); font-weight: 600; font-size: 20px; text-transform: uppercase; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 4px 0 8px; }
+    .fo-row { display: flex; align-items: center; gap: 8px; }
+    .faceoff-side.foe .fo-row { justify-content: flex-end; }
+    .fo-score { font-family: var(--font-display); font-weight: 600; color: var(--gold); font-size: 16px; font-variant-numeric: tabular-nums; }
+    .fo-delta { font-family: var(--font-display); font-weight: 700; font-size: 27px; margin-top: 8px; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+    .fo-delta.up { color: var(--green-light); }
+    .fo-delta.down { color: var(--red-light); }
+    .fo-delta.zero { color: var(--text-dim); }
+    .fo-placement { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+
+    .faceoff-mid { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 66px; }
+    .fo-remaining { font-family: var(--font-display); font-weight: 700; font-size: 23px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .fo-remaining .a { color: var(--blue-light); }
+    .fo-remaining .b { color: var(--red-light); }
+    .fo-remaining .sep { color: var(--text-dim); margin: 0 5px; }
+    .fo-remaining-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim); margin-top: 4px; text-align: center; }
 
     .tier-badge {
       display: inline-block;
@@ -141,15 +230,24 @@
     .tier-Silver { background: #889; color: #fff; }
     .tier-Bronze { background: #864; color: #fff; }
 
-    .summary-line { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
-    .replay-link {
-      display: inline-block;
-      color: var(--gold);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 600;
+    .replay-cta {
+      display: block; width: max-content; margin: 14px auto 12px; position: relative; z-index: 1;
+      padding: 9px 24px; font-family: var(--font-display); font-weight: 600; letter-spacing: 2px;
+      text-transform: uppercase; font-size: 13px; color: var(--gold); text-decoration: none;
+      border: 1px solid rgba(255,215,0,.45); border-radius: 8px; background: rgba(255,215,0,.06);
+      transition: background .15s, transform .12s;
     }
-    .replay-link:hover { text-decoration: underline; }
+    .replay-cta::before { content: "▶"; margin-right: 8px; font-size: 11px; }
+    .replay-cta:hover { background: rgba(255,215,0,.14); transform: translateY(-1px); }
+
+    @keyframes cardRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    @keyframes iconPop { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
+    @media (max-width: 560px) {
+      .faceoff { grid-template-columns: 1fr; }
+      .faceoff-side.foe { text-align: left; }
+      .faceoff-side.foe .fo-row { justify-content: flex-start; }
+      .verdict-text { font-size: 34px; letter-spacing: 5px; }
+    }
 
     .error-line { color: #f66; font-size: 13px; margin-top: 8px; text-align: center; min-height: 18px; }
 
@@ -185,8 +283,98 @@
     </div>
   </main>
 
+  <!-- In-place battle replay (reuses the replay stage markup + replay.js, no iframe) -->
+  <div id="app" class="hidden">
+    <div id="loading" class="hidden" data-i18n="common.loading">加载中...</div>
+    <div id="error" class="hidden"></div>
+    <div id="no-snapshots" class="hidden">
+      <p data-i18n="replay.no_snapshots.line1">⚠️ 该对战记录早于回放功能上线，无法播放动画回放。</p>
+      <p data-i18n="replay.no_snapshots.line2">你可以查看下方的事件日志。</p>
+    </div>
+
+    <div id="replay" class="hidden">
+      <div id="main-area">
+        <div id="board-container">
+          <div id="board"></div>
+          <div id="coin-intro" class="hidden">
+            <div class="coin-stage">
+              <div class="coin"></div>
+              <div class="coin-caption" data-i18n="replay.coin.flipping">抛硬币中…</div>
+              <div class="coin-result"></div>
+            </div>
+          </div>
+        </div>
+        <aside id="sidebar">
+          <div id="turn-info">
+            <span id="turn-label">回合 1 / 10</span>
+            <span id="phase-label">—</span>
+          </div>
+          <div id="army-header">
+            <div class="army-col side-a">
+              <span class="dot blue"></span>
+              <span id="sideA-name" class="army-name" data-i18n="replay.side_a.default">蓝方</span>
+              <span id="mover-badge-a" class="mover-badge hidden"></span>
+            </div>
+            <div class="vs">VS</div>
+            <div class="army-col side-b">
+              <span id="mover-badge-b" class="mover-badge hidden"></span>
+              <span id="sideB-name" class="army-name" data-i18n="replay.side_b.default">红方</span>
+              <span class="dot red"></span>
+            </div>
+          </div>
+          <div id="unit-detail" class="hidden">
+            <div id="detail-icon"></div>
+            <div id="detail-info">
+              <div id="detail-name"></div>
+              <div id="detail-type"></div>
+              <div id="detail-hp-bar"><div id="detail-hp-fill"></div></div>
+              <div id="detail-stats"></div>
+            </div>
+          </div>
+          <div id="match-summary">
+            <div id="summary-content"></div>
+          </div>
+          <div id="combat-stats">
+            <h3 data-i18n="replay.stats.title">战斗统计</h3>
+            <div id="stats-content"></div>
+          </div>
+          <div id="roster">
+            <div class="roster-label" id="roster-label-a">⚔ A</div>
+            <div id="roster-a" class="roster-group"></div>
+            <div class="roster-label" id="roster-label-b">🛡 B</div>
+            <div id="roster-b" class="roster-group"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="controls">
+        <button id="btnReset" data-i18n-attr="title:replay.controls.reset" title="回到开始">⏮</button>
+        <button id="btnPrev" data-i18n-attr="title:replay.controls.prev" title="上一步">⏪</button>
+        <button id="btnPlay" data-i18n-attr="title:replay.controls.play" title="播放/暂停">▶️</button>
+        <button id="btnNext" data-i18n-attr="title:replay.controls.next" title="下一步">⏩</button>
+        <button id="btnEnd" data-i18n-attr="title:replay.controls.end" title="跳到最后">⏭</button>
+        <input type="range" id="turnSlider" min="0" max="1" value="0">
+        <select id="speedSelect">
+          <option value="2">2x</option>
+          <option value="4" selected>4x</option>
+          <option value="8">8x</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="events-panel" class="hidden">
+      <h3 data-i18n="replay.events.title">事件日志</h3>
+      <div id="events-list"></div>
+    </div>
+  </div>
+
+  <!-- Battle report (rank deltas + summary) — sits BELOW the battle interface. -->
+  <div class="arena-wrap"><div id="resultPanel"></div></div>
+
   <div id="footer-mount"></div>
 
+  <script src="/assets/sprites.js?v=3"></script>
+  <script src="/replay.js?v=14"></script>
   <script>
     (async function () {
       await window.i18nReady;
@@ -237,33 +425,51 @@
         const noOpponents = otherCmds.length === 0;
 
         root.innerHTML = `
-          <div class="picker-row">
-            <div class="picker-col">
-              <div class="picker-label">${t("arena.my_side")}</div>
-              <select id="mySelect">
-                <option value="" disabled selected>${t("arena.my_picker_placeholder")}</option>
-                ${myOptions}
-              </select>
-              <div class="picker-meta" id="myMeta"></div>
-            </div>
-            <div class="vs-divider">VS</div>
-            <div class="picker-col">
-              <div class="picker-label">${t("arena.opp_side")}</div>
-              <div class="opp-hint">${t("arena.opp_paste_hint")}</div>
-              <div class="opp-input-row">
-                <input type="text" id="oppInput" autocomplete="off" spellcheck="false"
-                  placeholder="${t("arena.opp_picker_placeholder")}" ${noOpponents ? "disabled" : ""}>
-                <button type="button" class="btn-random" id="randomBtn" title="${t("arena.opp_random_btn")}" ${noOpponents ? "disabled" : ""}>🎲</button>
+          <div class="duel">
+            <div class="duel-bg"></div>
+            <div class="combatant me">
+              <div class="faction-tag">◤ ${t("arena.my_side")}</div>
+              <div class="crest">◆</div>
+              <div class="combatant-name placeholder" id="myCardName">${t("arena.my_picker_placeholder")}</div>
+              <div class="combatant-meta">
+                <span id="myCardTier"></span>
+                <span class="combatant-score" id="myCardScore"></span>
               </div>
-              <div class="picker-meta" id="oppMeta">${noOpponents ? t("arena.opp_no_commanders") : ""}</div>
+              <div class="picker-field">
+                <span class="picker-field-label">${t("arena.my_side")}</span>
+                <select id="mySelect">
+                  <option value="" disabled selected>${t("arena.my_picker_placeholder")}</option>
+                  ${myOptions}
+                </select>
+              </div>
+            </div>
+
+            <div class="versus"><div class="versus-emblem"><span>VS</span></div></div>
+
+            <div class="combatant foe">
+              <div class="faction-tag">${t("arena.opp_side")} ◥</div>
+              <div class="crest">◆</div>
+              <div class="combatant-name placeholder" id="oppCardName">？</div>
+              <div class="combatant-meta">
+                <span id="oppCardTier"></span>
+                <span class="combatant-score" id="oppCardScore"></span>
+              </div>
+              <div class="picker-field">
+                <span class="picker-field-label">${t("arena.opp_paste_hint")}</span>
+                <div class="opp-input-row">
+                  <input type="text" id="oppInput" autocomplete="off" spellcheck="false"
+                    placeholder="${t("arena.opp_picker_placeholder")}" ${noOpponents ? "disabled" : ""}>
+                  <button type="button" class="btn-random" id="randomBtn" title="${t("arena.opp_random_btn")}" ${noOpponents ? "disabled" : ""}>🎲</button>
+                </div>
+                <div class="picker-meta" id="oppMeta">${noOpponents ? t("arena.opp_no_commanders") : ""}</div>
+              </div>
             </div>
           </div>
           <div class="fight-row">
             <button class="btn-fight" id="fightBtn" disabled>${t("arena.fight_btn")}</button>
             <span class="cooldown-text" id="cooldownText"></span>
           </div>
-          <div class="error-line" id="errorLine"></div>
-          <div id="resultPanel"></div>`;
+          <div class="error-line" id="errorLine"></div>`;
 
         const mySelect = document.getElementById("mySelect");
         const oppInput = document.getElementById("oppInput");
@@ -272,9 +478,40 @@
         const fightBtn = document.getElementById("fightBtn");
         const errorLine = document.getElementById("errorLine");
         const cooldownText = document.getElementById("cooldownText");
+        const myCardName = document.getElementById("myCardName");
+        const myCardTier = document.getElementById("myCardTier");
+        const myCardScore = document.getElementById("myCardScore");
+        const oppCardName = document.getElementById("oppCardName");
+        const oppCardTier = document.getElementById("oppCardTier");
+        const oppCardScore = document.getElementById("oppCardScore");
 
         let cooldownTimer = null;
         state.oppId = null;
+
+        function tierPill(rank) {
+          return rank && rank.tier
+            ? `<span class="tier-badge tier-${rank.tier}">${escapeHtml(rank.tier)} ${escapeHtml(rank.division || "")}</span>`
+            : "";
+        }
+        function renderMyCard() {
+          const sel = state.myCommanders.find(c => c.commanderId === mySelect.value);
+          if (sel) {
+            myCardName.textContent = sel.displayName; myCardName.classList.remove("placeholder");
+            myCardTier.innerHTML = tierPill(sel.rank); myCardScore.textContent = sel.rank.score;
+          } else {
+            myCardName.textContent = t("arena.my_picker_placeholder"); myCardName.classList.add("placeholder");
+            myCardTier.innerHTML = ""; myCardScore.textContent = "";
+          }
+        }
+        function renderOppCard(match) {
+          if (match) {
+            oppCardName.textContent = match.displayName; oppCardName.classList.remove("placeholder");
+            oppCardTier.innerHTML = tierPill(match.rank); oppCardScore.textContent = match.rank.score;
+          } else {
+            oppCardName.textContent = "？"; oppCardName.classList.add("placeholder");
+            oppCardTier.innerHTML = ""; oppCardScore.textContent = "";
+          }
+        }
 
         function resolveOpponent() {
           const q = oppInput.value.trim().toLowerCase();
@@ -282,16 +519,19 @@
           const eligible = myScore > 0 ? otherCmds.filter(c => c.rank.score >= myScore * 0.9 && c.rank.score <= myScore * 1.1) : otherCmds;
           if (!q) {
             state.oppId = null;
+            renderOppCard(null);
             oppMeta.classList.remove("err");
             oppMeta.textContent = noOpponents ? t("arena.opp_no_commanders") : (myScore > 0 ? t("arena.opp_range_hint", { lo: Math.round(myScore * 0.9), hi: Math.round(myScore * 1.1) }) : "");
           } else {
             const match = eligible.find((c) => c.displayName.toLowerCase() === q);
             if (match) {
               state.oppId = match.commanderId;
+              renderOppCard(match);
               oppMeta.classList.remove("err");
               oppMeta.innerHTML = `${escapeHtml(match.rank.tier)} ${escapeHtml(match.rank.division)} · ${t("arena.score_label", { score: match.rank.score })}`;
             } else {
               state.oppId = null;
+              renderOppCard(null);
               oppMeta.classList.add("err");
               oppMeta.textContent = t("arena.opp_not_found");
             }
@@ -330,6 +570,7 @@
         mySelect.addEventListener("change", () => {
           state.oppId = null;
           oppInput.value = "";
+          renderMyCard();
           resolveOpponent();
           updateFightBtn();
         });
@@ -342,6 +583,27 @@
           oppInput.value = pick.displayName;
           resolveOpponent();
         });
+
+        // Pre-select so the user can fight on arrival: their highest-scoring
+        // commander, plus an opponent — the one deep-linked from the leaderboard
+        // (?opponent=name) if given, otherwise a random eligible one. With few
+        // players and wide score gaps there may be no eligible opponent — that's
+        // expected; we just leave the opponent blank.
+        (function autoPreselect() {
+          if (!state.myCommanders.length) return;
+          const best = state.myCommanders.reduce((a, b) => (b.rank.score > a.rank.score ? b : a));
+          mySelect.value = best.commanderId;
+          renderMyCard();
+          const wanted = (new URLSearchParams(location.search).get("opponent") || "").trim().toLowerCase();
+          const myScore = getSelectedScore();
+          const eligible = myScore > 0 ? otherCmds.filter(c => c.rank.score >= myScore * 0.9 && c.rank.score <= myScore * 1.1) : otherCmds;
+          let pick = null;
+          if (wanted) pick = otherCmds.find(c => c.displayName.toLowerCase() === wanted) || null;
+          if (!pick && eligible.length) pick = eligible[Math.floor(Math.random() * eligible.length)];
+          if (pick) oppInput.value = pick.displayName;
+          resolveOpponent();
+          updateFightBtn();
+        })();
 
         fightBtn.addEventListener("click", async () => {
           if (!mySelect.value || !state.oppId) {
@@ -378,55 +640,94 @@
         });
       }
 
+      function bigDelta(n) {
+        const cls = n > 0 ? "up" : n < 0 ? "down" : "zero";
+        const arrow = n > 0 ? "▲" : n < 0 ? "▼" : "—";
+        const txt = n > 0 ? ("+" + n) : (n < 0 ? ("" + n) : "±0");
+        return `<div class="fo-delta ${cls}">${arrow} ${txt}</div>`;
+      }
+
+      // Builds the verdict popup, then plays the battle. The popup only floats up
+      // AFTER the replay finishes (and at least 5s in) so the battle stays the star.
       function renderResult(res, state, myCmdId, oppId) {
         const myCmd = state.myCommanders.find((c) => c.commanderId === myCmdId);
-        const oppLabel = "👥 " + (state.allCommanders.find((c) => c.commanderId === oppId)?.displayName || oppId);
+        const myName = myCmd ? myCmd.displayName : myCmdId;
+        const oppName = state.allCommanders.find((c) => c.commanderId === oppId)?.displayName || oppId;
+        const cls = res.result;
+        const icon = cls === "win" ? "🏆" : cls === "loss" ? "💀" : "🤝";
 
         const placementNote = res.myRank.placementMatches < 5
-          ? `<span class="placement-note">${t("arena.placement_left", { n: res.myRank.placementMatches })}</span>`
+          ? `<div class="fo-placement">${t("arena.placement_left", { n: res.myRank.placementMatches })}</div>`
           : "";
 
-        const oppBlock = `
-            <div class="rank-cell">
-              <div class="label">${t("arena.opp_side")}</div>
-              <div class="who">${escapeHtml(oppLabel)}</div>
-              <div class="stats">
-                ${tierBadge(res.opponentRank)}
-                <span class="score">${t("arena.score_label", { score: res.opponentRank.score })}</span>
-                ${fmtDelta(res.opponentRank.delta)}
+        const overlayHtml = `
+          <div class="verdict-overlay" id="verdictOverlay">
+            <div class="verdict-card verdict-${cls}">
+              <div class="verdict-glow"></div>
+              <button class="verdict-close" id="verdictClose" aria-label="close">✕</button>
+              <div class="verdict-banner">
+                <span class="verdict-icon">${icon}</span>
+                <span class="verdict-text">${t("arena.result." + cls)}</span>
               </div>
-            </div>`;
-
-        const panel = document.getElementById("resultPanel");
-        const cls = res.result;
-        panel.innerHTML = `
-          <div class="result-card">
-            <div class="result-banner ${cls}">${t("arena.result." + cls)}</div>
-            <div class="rank-grid">
-              <div class="rank-cell">
-                <div class="label">${t("arena.my_side")}</div>
-                <div class="who">${escapeHtml(myCmd ? myCmd.displayName : myCmdId)}</div>
-                <div class="stats">
-                  ${tierBadge(res.myRank)}
-                  <span class="score">${t("arena.score_label", { score: res.myRank.score })}</span>
-                  ${fmtDelta(res.myRank.delta)}
+              <div class="faceoff">
+                <div class="faceoff-side me">
+                  <div class="fo-label">◤ ${t("arena.my_side")}</div>
+                  <div class="fo-name">${escapeHtml(myName)}</div>
+                  <div class="fo-row">${tierBadge(res.myRank)} <span class="fo-score">${res.myRank.score}</span></div>
+                  ${bigDelta(res.myRank.delta)}
                   ${placementNote}
                 </div>
+                <div class="faceoff-mid">
+                  <div class="fo-remaining"><span class="a">${res.summary.myUnitsRemaining}</span><span class="sep">:</span><span class="b">${res.summary.enemyUnitsRemaining}</span></div>
+                  <div class="fo-remaining-label">${t("arena.result.remaining_label")}</div>
+                </div>
+                <div class="faceoff-side foe">
+                  <div class="fo-label">${t("arena.opp_side")} ◥</div>
+                  <div class="fo-name">${escapeHtml(oppName)}</div>
+                  <div class="fo-row">${tierBadge(res.opponentRank)} <span class="fo-score">${res.opponentRank.score}</span></div>
+                  ${bigDelta(res.opponentRank.delta)}
+                </div>
               </div>
-              ${oppBlock}
+              <a class="replay-cta" href="/${lang}/replay/${encodeURIComponent(res.matchId)}?autoplay=1">${t("arena.result.replay")}</a>
             </div>
-            <div class="summary-line">
-              ${t("arena.result.summary_remaining", {
-                a: res.summary.myUnitsRemaining,
-                b: res.summary.enemyUnitsRemaining,
-              })}
-            </div>
-            <a class="replay-link" href="/${lang}/replay/${encodeURIComponent(res.matchId)}?autoplay=1">${t("arena.result.replay")}</a>
           </div>`;
-          // Redirect to replay for immersive "live battle" feel
-          setTimeout(() => {
-            window.location.href = `/${lang}/replay/${encodeURIComponent(res.matchId)}?autoplay=1`;
-          }, 800);
+
+        // Play the battle in place; reveal the popup once it has played through.
+        mountBattle(res.matchId, () => showVerdict(overlayHtml));
+      }
+
+      function showVerdict(html) {
+        const panel = document.getElementById("resultPanel");
+        panel.innerHTML = html;
+        const ov = document.getElementById("verdictOverlay");
+        if (!ov) return;
+        const close = () => ov.remove();
+        document.getElementById("verdictClose").addEventListener("click", close);
+        ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+        document.addEventListener("keydown", function esc(e) {
+          if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
+        });
+      }
+
+      let embeddedReplay = null;
+      function mountBattle(matchId, onComplete) {
+        const stage = document.getElementById("app");
+        stage.classList.remove("hidden");
+        if (!embeddedReplay) {
+          embeddedReplay = new ReplayApp({ embedded: true, autoplay: true });
+          window.replayApp = embeddedReplay;
+        }
+        // Show the verdict only after the replay finishes AND ≥5s have passed.
+        const t0 = Date.now();
+        embeddedReplay.onComplete = () => {
+          const wait = Math.max(0, 5000 - (Date.now() - t0));
+          setTimeout(() => { if (typeof onComplete === "function") onComplete(); }, wait);
+        };
+        // Scroll down to the battle only AFTER the map/board has finished loading
+        // (loadMatch resolves once snapshots are fetched and the board is rendered).
+        embeddedReplay.loadMatch(matchId).then(() => {
+          requestAnimationFrame(() => stage.scrollIntoView({ behavior: "smooth", block: "start" }));
+        });
       }
 
       async function reloadCommanderRanks(state) {

@@ -9,6 +9,8 @@ export interface CommanderMeta {
 export interface AgentJson {
   matchId: string;
   result: "win" | "loss" | "draw";
+  // True if the viewer won the opening coin flip and moved first every round.
+  iMovedFirst: boolean;
   myCommander: CommanderMeta;
   enemyCommander: CommanderMeta;
   myArmy: ArmyEntry[];
@@ -50,6 +52,7 @@ export function toAgentJson(
   return {
     matchId: match.matchId,
     result,
+    iMovedFirst: match.firstSide === viewerSide,
     myCommander: myMeta,
     enemyCommander: enemyMeta,
     myArmy: meIsA ? match.armyA : match.armyB,

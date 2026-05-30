@@ -34,6 +34,11 @@
     .result-badge.draw { background: rgba(180,180,180,0.15); color: var(--text-dim); }
     .type-chip { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); margin-left: 6px; vertical-align: middle; }
     .type-chip.challenge { color: var(--gold); border-color: var(--gold); }
+    .first-chip { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 700; background: rgba(218,165,32,0.16); color: var(--gold); margin: 0 4px; vertical-align: middle; white-space: nowrap; }
+
+    .cmd-head-back { display: inline-block; margin-bottom: 4px; color: var(--text-dim); text-decoration: none; font-size: 12px; }
+    .cmd-head-back:hover { color: var(--gold); }
+    .opp-name { color: var(--text); }
     .time-cell { color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
     .replay-link { color: var(--gold); text-decoration: none; font-size: 12px; }
     .replay-link:hover { text-decoration: underline; }
@@ -90,19 +95,44 @@
       let exhausted = false;
       let signedIn = false;
 
-      try {
-        const who = await api.get("/api/me/whoami");
-        signedIn = !!who.signedIn;
-      } catch { /* keep signedIn=false */ }
+      // Commander mode: /matches?commander=<id>&name=<displayName> shows just that
+      // commander's battle history (linked from the leaderboard).
+      const params = new URLSearchParams(location.search);
+      const commanderId = params.get("commander");
+      const commanderName = params.get("name") || "";
+      const commanderMode = !!commanderId;
 
-      if (signedIn) {
-        currentFilter = "mine";
-        document.querySelector('.filter-tab[data-filter="all"]')?.classList.remove("active");
-        document.querySelector('.filter-tab[data-filter="mine"]')?.classList.add("active");
+      if (commanderMode) {
+        // No "all / mine" filtering in commander mode — replace the head.
+        const head = document.querySelector(".matches-head");
+        if (head) {
+          head.innerHTML = `
+            <div>
+              <a class="cmd-head-back" href="/${lang}/leaderboard">${t("matches.back_to_leaderboard")}</a>
+              <h1>${t("matches.commander_records", { name: escapeHtml(commanderName) || commanderId })}</h1>
+            </div>`;
+        }
+      } else {
+        try {
+          const who = await api.get("/api/me/whoami");
+          signedIn = !!who.signedIn;
+        } catch { /* keep signedIn=false */ }
+
+        if (signedIn) {
+          currentFilter = "mine";
+          document.querySelector('.filter-tab[data-filter="all"]')?.classList.remove("active");
+          document.querySelector('.filter-tab[data-filter="mine"]')?.classList.add("active");
+        }
       }
 
       function escapeHtml(s) {
         return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      // ⚡ chip marking the coin-flip winner who moved first. `side` is "A"/"B".
+      function firstMoverChip(firstSide, side) {
+        if (firstSide !== side) return "";
+        return `<span class="first-chip" title="${t("matches.first_mover_hint")}">${t("matches.first_mover")}</span>`;
       }
 
       function fmtTime(iso) {
@@ -130,9 +160,36 @@
           <tr>
             <td class="time-cell">${escapeHtml(fmtTime(m.createdAt))}</td>
             <td>
-              <span class="name-a">${escapeHtml(a)} <span class="score-num">(${aLeft})</span></span>
+              <span class="name-a">${firstMoverChip(m.firstSide, "A")}${escapeHtml(a)} <span class="score-num">(${aLeft})</span></span>
               <span class="vs-cell">VS</span>
-              <span class="name-b"><span class="score-num">(${bLeft})</span> ${escapeHtml(b)}</span>
+              <span class="name-b"><span class="score-num">(${bLeft})</span> ${escapeHtml(b)}${firstMoverChip(m.firstSide, "B")}</span>
+              ${typeChip}
+            </td>
+            <td><span class="result-badge ${cls}">${label}</span></td>
+            <td><a class="replay-link" href="/${lang}/replay/${m.matchId}">${t("matches.view_replay")}</a></td>
+          </tr>`;
+      }
+
+      // Row renderer for commander mode (/api/commanders/:id/matches shape).
+      function renderCommanderRow(m) {
+        const opp = m.opponentName || m.opponent || "—";
+        const myLeft = m.summary?.myUnitsRemaining ?? "—";
+        const oppLeft = m.summary?.enemyUnitsRemaining ?? "—";
+        const cls = m.result === "win" ? "win" : m.result === "loss" ? "loss" : "draw";
+        const label = t(`matches.result.${cls}`);
+        const typeChip = m.type === "challenge"
+          ? `<span class="type-chip challenge">${t("matches.type.challenge")}</span>`
+          : `<span class="type-chip">${t("matches.type.simulate")}</span>`;
+        const firstChip = m.iMovedFirst === true
+          ? `<span class="first-chip" title="${t("matches.first_mover_hint")}">${t("matches.first_mover")}</span>`
+          : "";
+        return `
+          <tr>
+            <td class="time-cell">${escapeHtml(fmtTime(m.createdAt))}</td>
+            <td>
+              <span class="name-a">${firstChip}${escapeHtml(commanderName || t("matches.this_commander"))} <span class="score-num">(${myLeft})</span></span>
+              <span class="vs-cell">VS</span>
+              <span class="opp-name"><span class="score-num">(${oppLeft})</span> ${escapeHtml(opp)}</span>
               ${typeChip}
             </td>
             <td><span class="result-badge ${cls}">${label}</span></td>
@@ -141,7 +198,7 @@
       }
 
       function renderTable() {
-        if (currentFilter === "mine" && !signedIn) {
+        if (!commanderMode && currentFilter === "mine" && !signedIn) {
           content.innerHTML = `
             <div class="signin-prompt">
               <p>${t("matches.filter.mine_signin_hint")}</p>
@@ -153,6 +210,7 @@
           content.innerHTML = `<div class="empty-state">${t("common.empty")}</div>`;
           return;
         }
+        const rowRenderer = commanderMode ? renderCommanderRow : renderRow;
         const tableHtml = `
           <table class="matches-table">
             <thead>
@@ -163,7 +221,7 @@
                 <th>${t("matches.col.action")}</th>
               </tr>
             </thead>
-            <tbody>${rows.map(renderRow).join("")}</tbody>
+            <tbody>${rows.map(rowRenderer).join("")}</tbody>
           </table>
           <div class="load-more-row">
             <button class="load-more-btn" id="loadMoreBtn" ${exhausted ? "disabled" : ""}>
@@ -177,14 +235,17 @@
 
       async function loadPage(reset) {
         if (reset) { rows = []; offset = 0; exhausted = false; }
-        if (currentFilter === "mine" && !signedIn) { renderTable(); return; }
+        if (!commanderMode && currentFilter === "mine" && !signedIn) { renderTable(); return; }
         content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
-        const url = currentFilter === "mine"
-          ? `/api/me/matches?limit=${PAGE_SIZE}&offset=${offset}`
-          : `/api/matches?limit=${PAGE_SIZE}&offset=${offset}`;
+        const url = commanderMode
+          ? `/api/commanders/${encodeURIComponent(commanderId)}/matches?limit=${PAGE_SIZE}&offset=${offset}`
+          : currentFilter === "mine"
+            ? `/api/me/matches?limit=${PAGE_SIZE}&offset=${offset}`
+            : `/api/matches?limit=${PAGE_SIZE}&offset=${offset}`;
         try {
           const data = await api.get(url);
-          const batch = data.matches || [];
+          // Commander endpoint returns a bare array; the others return { matches }.
+          const batch = Array.isArray(data) ? data : (data.matches || []);
           if (batch.length < PAGE_SIZE) exhausted = true;
           rows = rows.concat(batch);
           offset += batch.length;
