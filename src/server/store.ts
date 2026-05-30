@@ -128,6 +128,10 @@ const commanderKeyToId = new Map<string, string>();
 const bootstrapTokenToId = new Map<string, string>();
 const displayNameLowerToId = new Map<string, string>();
 const userGithubIdToId = new Map<number, string>();
+// Match ids in createdAt-descending order (newest first). Lets listMatches /
+// getMatchesByOwner paginate with a slice instead of sorting every record on
+// each request. New matches carry createdAt=now, so they prepend.
+let matchOrder: string[] = [];
 
 function indexCommander(c: CommanderRecord): void {
   if (c.commanderKey) commanderKeyToId.set(c.commanderKey, c.id);
@@ -148,6 +152,9 @@ function rebuildIndexes(): void {
   userGithubIdToId.clear();
   for (const c of Object.values(state.commanders)) indexCommander(c);
   for (const u of Object.values(state.users)) userGithubIdToId.set(u.githubId, u.id);
+  matchOrder = Object.values(state.matches)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((m) => m.matchId);
 }
 
 // ===== Display name validation =====
@@ -541,7 +548,9 @@ function indexFromRecord(rec: MatchRecord): MatchIndex {
 export function saveMatch(rec: MatchRecord): void {
   ensureLoaded();
   writeMatchFile(rec);
+  const isNew = !state.matches[rec.matchId];
   state.matches[rec.matchId] = indexFromRecord(rec);
+  if (isNew) matchOrder.unshift(rec.matchId);
   const aId = rec.participantA.commanderId;
   const bId = rec.participantB.commanderId;
   const aCmd = state.commanders[aId];
@@ -587,10 +596,11 @@ export function getMatchesByCommander(commanderId: string, limit = 20, offset = 
 
 export function listMatches(limit = 50, offset = 0): { matches: MatchIndex[]; total: number } {
   ensureLoaded();
-  const all = Object.values(state.matches).sort(
-    (a, b) => b.createdAt.localeCompare(a.createdAt),
-  );
-  return { matches: all.slice(offset, offset + limit), total: all.length };
+  const matches = matchOrder
+    .slice(offset, offset + limit)
+    .map((id) => state.matches[id])
+    .filter((m): m is MatchIndex => !!m);
+  return { matches, total: matchOrder.length };
 }
 
 export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): MatchIndex[] {
@@ -599,10 +609,19 @@ export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): Matc
     Object.values(state.commanders).filter((c) => c.ownerId === ownerId).map((c) => c.id),
   );
   if (myCmdIds.size === 0) return [];
-  const all = Object.values(state.matches)
-    .filter((m) => myCmdIds.has(m.participantA.commanderId) || myCmdIds.has(m.participantB.commanderId))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return all.slice(offset, offset + limit);
+  // Walk the pre-sorted order and collect this owner's matches, skipping
+  // `offset` and stopping once we have `limit` — no per-request sort.
+  const out: MatchIndex[] = [];
+  let skipped = 0;
+  for (const id of matchOrder) {
+    const m = state.matches[id];
+    if (!m) continue;
+    if (!(myCmdIds.has(m.participantA.commanderId) || myCmdIds.has(m.participantB.commanderId))) continue;
+    if (skipped < offset) { skipped++; continue; }
+    out.push(m);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 // ===== Issues =====

@@ -58,6 +58,10 @@ import {
 const SIMULATE_COOLDOWN_MS = 2000;
 const CHALLENGE_COOLDOWN_MS = 60_000;
 
+// Public base URL, single source for the localhost fallback. Set AC_BASE_URL in
+// production so bootstrap/agent-init URLs point at the real host.
+const BASE_URL = process.env.AC_BASE_URL ?? "http://localhost:8787";
+
 // Per-user cooldown for ranked challenges (one challenge per minute across all commanders).
 const challengeLastAt = new Map<string, number>();
 
@@ -129,7 +133,7 @@ app.use("/api/me/*", requireSession);
 app.get("/api/me", (c) => {
   const user = c.get("user");
   const commanders = listCommandersByOwner(user.id);
-  const baseUrl = process.env.AC_BASE_URL ?? "http://localhost:8787";
+  const baseUrl = BASE_URL;
   return c.json({
     user: {
       id: user.id,
@@ -166,7 +170,7 @@ app.post("/api/me/commanders", async (c) => {
     return c.json(resp, 409);
   }
   const cmd = createCommanderForOwner({ ownerId: user.id, displayName: validation.normalized });
-  const baseUrl = process.env.AC_BASE_URL ?? "http://localhost:8787";
+  const baseUrl = BASE_URL;
   return c.json({
     commanderId: cmd.id,
     displayName: cmd.displayName,
@@ -183,7 +187,7 @@ app.get("/api/me/commanders/:id", (c) => {
   if (!cmd || cmd.ownerId !== user.id) {
     return c.json({ error: "not_found" }, 404);
   }
-  const baseUrl = process.env.AC_BASE_URL ?? "http://localhost:8787";
+  const baseUrl = BASE_URL;
   return c.json({
     commanderId: cmd.id,
     displayName: cmd.displayName,
@@ -251,7 +255,7 @@ app.post("/api/me/commanders/:id/regenerate-bootstrap", (c) => {
   }
   const updated = regenerateCommanderBootstrapToken(cmd.id);
   if (!updated) return c.json({ error: "not_found" }, 404);
-  const baseUrl = process.env.AC_BASE_URL ?? "http://localhost:8787";
+  const baseUrl = BASE_URL;
   return c.json({
     bootstrapToken: updated.bootstrapToken,
     bootstrapUrl: `${baseUrl}/agent-init/${updated.bootstrapToken}`,
@@ -409,41 +413,47 @@ function pickLang(c: Context): "zh" | "en" {
   return accept.startsWith("en") ? "en" : "zh";
 }
 
+// Page HTML is baked into the image and never changes at runtime, so read each
+// file once and serve from memory thereafter.
+const pageCache = new Map<string, string>();
+
 function servePage(c: Context, key: keyof typeof PAGE_FILES) {
   const file = PAGE_FILES[key];
   if (!file) return c.notFound();
-  try {
-    const html = readFileSync(resolve(__pagesDir, file), "utf8");
-    return c.html(html);
-  } catch {
-    return c.text("page not found", 404);
+  let html = pageCache.get(file);
+  if (html === undefined) {
+    try {
+      html = readFileSync(resolve(__pagesDir, file), "utf8");
+    } catch {
+      return c.text("page not found", 404);
+    }
+    pageCache.set(file, html);
   }
+  return c.html(html);
 }
 
 app.get("/", (c) => c.redirect(`/${pickLang(c)}`, 302));
-app.get("/zh", (c) => servePage(c, "home"));
-app.get("/en", (c) => servePage(c, "home"));
-app.get("/zh/replay/:id", (c) => servePage(c, "replay"));
-app.get("/en/replay/:id", (c) => servePage(c, "replay"));
-app.get("/zh/me", (c) => servePage(c, "me"));
-app.get("/en/me", (c) => servePage(c, "me"));
-app.get("/zh/matches", (c) => servePage(c, "matches"));
-app.get("/en/matches", (c) => servePage(c, "matches"));
-app.get("/zh/arena", (c) => servePage(c, "arena"));
-app.get("/en/arena", (c) => servePage(c, "arena"));
-app.get("/zh/leaderboard", (c) => servePage(c, "leaderboard"));
-app.get("/en/leaderboard", (c) => servePage(c, "leaderboard"));
-app.get("/zh/army", (c) => servePage(c, "army"));
-app.get("/en/army", (c) => servePage(c, "army"));
-app.get("/zh/about", (c) => servePage(c, "about"));
-app.get("/en/about", (c) => servePage(c, "about"));
-app.get("/zh/issues", (c) => servePage(c, "issues"));
-app.get("/en/issues", (c) => servePage(c, "issues"));
-app.get("/zh/issues/:id", (c) => servePage(c, "issueDetail"));
-app.get("/en/issues/:id", (c) => servePage(c, "issueDetail"));
+
+// Language-prefixed pages. Registered once each via a regex-constrained :lang
+// param ({zh|en}) instead of repeating every route for both languages. The
+// empty suffix covers the bare /zh and /en home routes.
+const LANG_PAGES: ReadonlyArray<[suffix: string, page: keyof typeof PAGE_FILES]> = [
+  ["", "home"],
+  ["/replay/:id", "replay"],
+  ["/me", "me"],
+  ["/matches", "matches"],
+  ["/arena", "arena"],
+  ["/leaderboard", "leaderboard"],
+  ["/army", "army"],
+  ["/about", "about"],
+  ["/issues", "issues"],
+  ["/issues/:id", "issueDetail"],
+];
+for (const [suffix, page] of LANG_PAGES) {
+  app.get(`/:lang{zh|en}${suffix}`, (c) => servePage(c, page));
+}
 for (const section of STUB_SECTIONS) {
-  app.get(`/zh/${section}`, (c) => servePage(c, "stub"));
-  app.get(`/en/${section}`, (c) => servePage(c, "stub"));
+  app.get(`/:lang{zh|en}/${section}`, (c) => servePage(c, "stub"));
 }
 
 const registerSchema = z.object({
@@ -849,7 +859,7 @@ app.get("/agent-init/:token", (c) => {
 
   console.log(`[agent-init] matched commander=${cmd.id} displayName=${cmd.displayName}`);
 
-  const baseUrl = process.env.AC_BASE_URL ?? "http://localhost:8787";
+  const baseUrl = BASE_URL;
 
   const accept = c.req.header("accept") ?? "";
   if (accept.includes("application/json") && !accept.includes("text/html") && !accept.includes("text/markdown")) {
