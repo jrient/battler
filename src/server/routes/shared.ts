@@ -1,4 +1,5 @@
 import type { Context, Hono, MiddlewareHandler } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import { runMatch } from "../../engine/battle.js";
@@ -24,6 +25,16 @@ export const BASE_URL = process.env.AC_BASE_URL ?? "http://localhost:8787";
 
 export const SIMULATE_COOLDOWN_MS = 2000;
 export const CHALLENGE_COOLDOWN_MS = 60_000;
+
+// Reject oversized request bodies before they are read into memory (DoS guard),
+// with a consistent JSON 413. zod still bounds individual fields afterward.
+export function jsonBodyLimit(maxSize: number): MiddlewareHandler<{ Variables: Vars }> {
+  return bodyLimit({
+    maxSize,
+    onError: (c) =>
+      c.json({ error: "payload_too_large", message: `request body exceeds the ${maxSize}-byte limit` }, 413),
+  });
+}
 
 export async function safeJson(c: Context): Promise<unknown> {
   try {

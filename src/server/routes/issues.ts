@@ -9,7 +9,11 @@ import {
   type CommentRecord,
 } from "../store.js";
 import { requireSession } from "../auth.js";
-import { safeJson, type AppType } from "./shared.js";
+import { jsonBodyLimit, safeJson, type AppType } from "./shared.js";
+
+// Title (≤120) + body (≤5000 chars) plus JSON overhead; 32k is ample even for
+// multibyte CJK content while still capping abusive payloads.
+const ISSUE_BODY_LIMIT = 32 * 1024;
 
 // ===== Issues (community feedback board) =====
 // Reads are public; creating issues/comments requires a signed-in session.
@@ -53,7 +57,7 @@ export function registerIssues(app: AppType): void {
     return c.json({ limit, offset, issues: listIssues(limit, offset).map(issueView) });
   });
 
-  app.post("/api/issues", requireSession, async (c) => {
+  app.post("/api/issues", requireSession, jsonBodyLimit(ISSUE_BODY_LIMIT), async (c) => {
     const user = c.get("user");
     const parsed = createIssueSchema.safeParse((await safeJson(c)) ?? {});
     if (!parsed.success) {
@@ -74,7 +78,7 @@ export function registerIssues(app: AppType): void {
     return c.json({ issue: issueView(issue), comments: listComments(issue.id).map(commentView) });
   });
 
-  app.post("/api/issues/:id/comments", requireSession, async (c) => {
+  app.post("/api/issues/:id/comments", requireSession, jsonBodyLimit(ISSUE_BODY_LIMIT), async (c) => {
     const user = c.get("user");
     const parsed = addCommentSchema.safeParse((await safeJson(c)) ?? {});
     if (!parsed.success) {

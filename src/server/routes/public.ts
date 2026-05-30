@@ -12,14 +12,17 @@ import {
   listMatches,
   listCommanders,
 } from "../store.js";
-import { DEMO_CODE, resolveDisplayName, safeJson, type AppType } from "./shared.js";
+import { DEMO_CODE, jsonBodyLimit, resolveDisplayName, safeJson, type AppType } from "./shared.js";
 
 const registerSchema = z.object({
   displayName: z.string().min(1).max(64).optional().default("Commander"),
 });
 
+// Registration only carries a short displayName; 4k is plenty.
+const REGISTER_BODY_LIMIT = 4 * 1024;
+
 export function registerPublic(app: AppType): void {
-  app.post("/api/register", async (c) => {
+  app.post("/api/register", jsonBodyLimit(REGISTER_BODY_LIMIT), async (c) => {
     const body = await safeJson(c);
     const parsed = registerSchema.safeParse(body ?? {});
     if (!parsed.success) {
