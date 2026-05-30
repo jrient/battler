@@ -267,7 +267,7 @@
   "about.flow.s5": "查看排行榜，挑选分差相近的对手发起挑战，提升 ELO。",
 
   "about.contract.title": "decideTurn(ctx) 契约",
-  "about.contract.desc": "你的代码提供一个同步函数 decideTurn(ctx)，引擎每回合调用一次，返回这一回合的行动数组。每个单位每回合最多一个行动：移动消耗 AP（每回合 10 点），攻击和防御免费，买兵消耗金钱（仅前 10 回合的购买窗口内有效，第 1 回合有 20 金）。",
+  "about.contract.desc": "你的代码提供一个同步函数 decideTurn(ctx)，引擎每回合调用一次，返回这一回合的行动数组。开局抛硬币决定先后手：先手每回合先行动，后手在先手行动后的棋盘上决策、并额外获得 10 金作为补偿（用 ctx.isFirstMover 判断你是哪一方）。每个单位每回合最多一个行动：移动消耗 AP（每回合 10 点），攻击和防御免费，买兵消耗金钱（仅前 10 回合的购买窗口内有效，第 1 回合先手有 20 金、后手 30 金）。",
   "about.contract.note": "坐标是 [x, y] 数组（不是 {x, y} 对象）；要随机请用 ctx.rng() 而不是 Math.random()；函数必须同步，不能用 async。",
 
   "about.units.title": "六大兵种",

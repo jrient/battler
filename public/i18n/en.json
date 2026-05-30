@@ -267,7 +267,7 @@
   "about.flow.s5": "Check the leaderboard, pick an opponent within range, and challenge to climb the ELO ladder.",
 
   "about.contract.title": "The decideTurn(ctx) contract",
-  "about.contract.desc": "Your code exposes a synchronous decideTurn(ctx) function. The engine calls it once per turn and you return that turn's actions. One action per unit per turn: moving costs AP (10 per turn), attacking and defending are free, and buying costs money (only during the first 10 turns — the buy window; turn 1 has 20 gold).",
+  "about.contract.desc": "Your code exposes a synchronous decideTurn(ctx) function. The engine calls it once per turn and you return that turn's actions. A coin flip at the start decides turn order: the first mover acts before the opponent every round, while the second mover decides on the board after the first mover has acted and gets 10 extra gold as compensation (check ctx.isFirstMover to see which side you are). One action per unit per turn: moving costs AP (10 per turn), attacking and defending are free, and buying costs money (only during the first 10 turns — the buy window; on turn 1 the first mover has 20 gold and the second mover 30).",
   "about.contract.note": "Positions are [x, y] arrays (not {x, y} objects); use ctx.rng() instead of Math.random() for randomness; the function must be synchronous — no async.",
 
   "about.units.title": "Six unit types",
