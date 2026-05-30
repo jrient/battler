@@ -116,6 +116,8 @@ body {
   display: flex;
   gap: 16px;
   margin-bottom: 12px;
+  /* Breathing room when auto-scrolled to the board on load. */
+  scroll-margin-top: 16px;
 }
 
 #board-container {

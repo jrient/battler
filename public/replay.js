@@ -45,7 +45,11 @@ class ReplayApp {
     this.speed = 4;
     this.turnIndex = 0;
     this.phaseIndex = -1;
-    this.autoplay = opts.autoplay ?? new URLSearchParams(location.search).has('autoplay');
+    // The standalone replay page autoplays by default (?autoplay=0 opts out);
+    // embedders like the arena pass an explicit opts.autoplay instead.
+    this.autoplay = opts.autoplay ?? (this.embedded
+      ? false
+      : new URLSearchParams(location.search).get("autoplay") !== "0");
     this.unitElements = {};
     this.selectedUnitId = null;
     this.animating = false;
@@ -189,6 +193,7 @@ class ReplayApp {
       this.renderMatchInfo();
       this.renderEvents();
       this.goToStart();
+      if (!this.embedded) this.scrollToStage();
       this.playCoinIntro(() => {
         if (this.autoplay) {
           this.speed = 8;
@@ -261,6 +266,18 @@ class ReplayApp {
     const m = ev.match(/\[COIN\]\s+(A|B)\s+won the toss.*?\(\+(\d+)\s*gold\)/);
     if (!m) return null;
     return { firstSide: m[1], bonus: Number(m[2]) };
+  }
+
+  // Standalone page: bring the battle board into view so the viewer lands on the
+  // animation instead of the page header. The nav is static (not sticky), so
+  // block:"start" is enough; rAF lets the just-revealed #replay lay out first.
+  scrollToStage() {
+    const stage = document.getElementById("main-area");
+    if (!stage) return;
+    requestAnimationFrame(() => {
+      try { stage.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      catch { stage.scrollIntoView(); }
+    });
   }
 
   // Opening coin-flip flourish: a spinning coin that settles on the toss winner,
