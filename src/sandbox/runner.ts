@@ -16,6 +16,21 @@ export class CompileError extends Error {
   }
 }
 
+// Fixed per-turn invocation script, compiled once for the whole process and
+// reused across every agent and every turn. The ctx (as a JSON string) and the
+// rng seed are handed in through context globals rather than embedded into the
+// source, so we avoid both recompiling a script each turn and double-encoding
+// the ctx. __runTurn still JSON.parses the string, preserving the host/sandbox
+// isolation the previous embed-into-source approach had.
+const CALL_SCRIPT = new vm.Script(
+  "__runTurn(globalThis.__acCtxStr, globalThis.__acSeed)",
+  { filename: "agent-call.js" },
+);
+
+// Loosely-typed view of a contextified object so we can stash call arguments
+// onto it as globals without `any` leaking through the call site.
+type SandboxGlobals = { __acCtxStr?: string; __acSeed?: number };
+
 /**
  * Compile player code into a sandboxed agent.
  * MVP uses Node's built-in vm with a fresh V8 context. Not a hard security boundary
@@ -83,12 +98,10 @@ export function loadAgent(code: string): SandboxedAgent {
       };
       let resultString: unknown;
       try {
-        const ctxJson = JSON.stringify(minimalCtx);
-        const script = new vm.Script(
-          `__runTurn(${JSON.stringify(ctxJson)}, ${rngSeed | 0})`,
-          { filename: "agent-call.js" },
-        );
-        resultString = script.runInContext(context, { timeout: CALL_TIMEOUT_MS });
+        const g = context as SandboxGlobals;
+        g.__acCtxStr = JSON.stringify(minimalCtx);
+        g.__acSeed = rngSeed | 0;
+        resultString = CALL_SCRIPT.runInContext(context, { timeout: CALL_TIMEOUT_MS });
       } catch {
         return [];
       }

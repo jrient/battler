@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
@@ -120,6 +120,36 @@ const EMPTY: StoreShape = {
 let state: StoreShape = EMPTY;
 let loaded = false;
 
+// ===== In-memory reverse indexes =====
+// Hot lookups (bearer auth on every request, bootstrap token, display-name
+// uniqueness, GitHub id) used to scan every record. These maps keep them O(1).
+// They are rebuilt from scratch on load and kept in sync by every mutator.
+const commanderKeyToId = new Map<string, string>();
+const bootstrapTokenToId = new Map<string, string>();
+const displayNameLowerToId = new Map<string, string>();
+const userGithubIdToId = new Map<number, string>();
+
+function indexCommander(c: CommanderRecord): void {
+  if (c.commanderKey) commanderKeyToId.set(c.commanderKey, c.id);
+  if (c.bootstrapToken) bootstrapTokenToId.set(c.bootstrapToken, c.id);
+  if (c.displayName) displayNameLowerToId.set(c.displayName.toLowerCase(), c.id);
+}
+
+function unindexCommander(c: CommanderRecord): void {
+  if (c.commanderKey) commanderKeyToId.delete(c.commanderKey);
+  if (c.bootstrapToken) bootstrapTokenToId.delete(c.bootstrapToken);
+  if (c.displayName) displayNameLowerToId.delete(c.displayName.toLowerCase());
+}
+
+function rebuildIndexes(): void {
+  commanderKeyToId.clear();
+  bootstrapTokenToId.clear();
+  displayNameLowerToId.clear();
+  userGithubIdToId.clear();
+  for (const c of Object.values(state.commanders)) indexCommander(c);
+  for (const u of Object.values(state.users)) userGithubIdToId.set(u.githubId, u.id);
+}
+
 // ===== Display name validation =====
 
 const RESERVED_NAMES = new Set([
@@ -222,12 +252,19 @@ function ensureLoaded(): void {
     state = { users: {}, commanders: {}, matches: {}, simulationLastAtByCommander: {}, issues: {}, comments: {} };
   }
   loaded = true;
+  rebuildIndexes();
   flush();
 }
 
 function flush(): void {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(STORE_FILE, JSON.stringify(state, null, 2));
+  // Atomic write: serialize to a temp file, then rename over the real file.
+  // rename(2) is atomic within a filesystem, so a crash mid-write can never
+  // leave a half-written (and therefore unparseable) store.json — which the
+  // loader would otherwise silently reset to EMPTY, losing every record.
+  const tmp = `${STORE_FILE}.${process.pid}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state));
+  renameSync(tmp, STORE_FILE);
 }
 
 // ===== User =====
@@ -239,10 +276,8 @@ export function getUserById(id: string): UserRecord | null {
 
 export function getUserByGithubId(githubId: number): UserRecord | null {
   ensureLoaded();
-  for (const u of Object.values(state.users)) {
-    if (u.githubId === githubId) return u;
-  }
-  return null;
+  const id = userGithubIdToId.get(githubId);
+  return id ? state.users[id] ?? null : null;
 }
 
 export function createUser(input: {
@@ -262,6 +297,7 @@ export function createUser(input: {
     createdAt: new Date().toISOString(),
   };
   state.users[id] = rec;
+  userGithubIdToId.set(rec.githubId, id);
   flush();
   return rec;
 }
@@ -284,10 +320,8 @@ export function updateUserProfile(
 
 export function getCommanderByKey(key: string): CommanderRecord | null {
   ensureLoaded();
-  for (const c of Object.values(state.commanders)) {
-    if (c.commanderKey === key) return c;
-  }
-  return null;
+  const id = commanderKeyToId.get(key);
+  return id ? state.commanders[id] ?? null : null;
 }
 
 export function getCommanderById(id: string): CommanderRecord | null {
@@ -297,19 +331,14 @@ export function getCommanderById(id: string): CommanderRecord | null {
 
 export function getCommanderByBootstrapToken(token: string): CommanderRecord | null {
   ensureLoaded();
-  for (const c of Object.values(state.commanders)) {
-    if (c.bootstrapToken === token) return c;
-  }
-  return null;
+  const id = bootstrapTokenToId.get(token);
+  return id ? state.commanders[id] ?? null : null;
 }
 
 export function findCommanderByDisplayName(name: string): CommanderRecord | null {
   ensureLoaded();
-  const lower = name.toLowerCase();
-  for (const c of Object.values(state.commanders)) {
-    if (c.displayName.toLowerCase() === lower) return c;
-  }
-  return null;
+  const id = displayNameLowerToId.get(name.toLowerCase());
+  return id ? state.commanders[id] ?? null : null;
 }
 
 export function listCommandersByOwner(ownerId: string): CommanderRecord[] {
@@ -350,6 +379,7 @@ export function createCommanderForOwner(input: {
     recentMatchIds: [],
   };
   state.commanders[id] = rec;
+  indexCommander(rec);
   flush();
   return rec;
 }
@@ -358,7 +388,9 @@ export function regenerateCommanderBootstrapToken(id: string): CommanderRecord |
   ensureLoaded();
   const c = state.commanders[id];
   if (!c) return null;
+  bootstrapTokenToId.delete(c.bootstrapToken);
   c.bootstrapToken = "bst_" + nanoid(32);
+  bootstrapTokenToId.set(c.bootstrapToken, c.id);
   flush();
   return c;
 }
@@ -367,14 +399,18 @@ export function resetCommanderKey(id: string): CommanderRecord | null {
   ensureLoaded();
   const c = state.commanders[id];
   if (!c) return null;
+  commanderKeyToId.delete(c.commanderKey);
   c.commanderKey = "ack_" + nanoid(24);
+  commanderKeyToId.set(c.commanderKey, c.id);
   flush();
   return c;
 }
 
 export function deleteCommander(id: string): boolean {
   ensureLoaded();
-  if (!state.commanders[id]) return false;
+  const c = state.commanders[id];
+  if (!c) return false;
+  unindexCommander(c);
   delete state.commanders[id];
   flush();
   return true;
@@ -384,7 +420,9 @@ export function renameCommander(id: string, newName: string): CommanderRecord | 
   ensureLoaded();
   const rec = state.commanders[id];
   if (!rec) return null;
+  displayNameLowerToId.delete(rec.displayName.toLowerCase());
   rec.displayName = newName;
+  displayNameLowerToId.set(newName.toLowerCase(), rec.id);
   flush();
   return rec;
 }
@@ -456,6 +494,7 @@ export function createCommander(input: {
     recentMatchIds: [],
   };
   state.commanders[input.id] = rec;
+  indexCommander(rec);
   flush();
   return rec;
 }
