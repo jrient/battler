@@ -147,6 +147,9 @@ export function registerPublic(app: AppType): void {
     const id = c.req.param("id");
     const m = getMatch(id);
     if (!m) return c.json({ error: "not_found" }, 404);
+    // A finished match's snapshots/events are immutable; only the resolved
+    // displayName can change (on rename), so cache briefly rather than forever.
+    c.header("Cache-Control", "public, max-age=300");
     return c.json({
       matchId: m.matchId,
       createdAt: m.createdAt,

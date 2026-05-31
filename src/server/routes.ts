@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { compress } from "hono/compress";
 import type { Vars } from "./routes/shared.js";
 import { registerAccount } from "./routes/account.js";
 import { registerIssues } from "./routes/issues.js";
@@ -8,6 +9,12 @@ import { registerCommander } from "./routes/commander.js";
 import { registerBootstrap } from "./routes/bootstrap.js";
 
 export const app = new Hono<{ Variables: Vars }>();
+
+// Gzip/deflate every response above the default 1 KB threshold. Registered
+// first so it wraps all routes below. The replay payload is ~2.7 MB of highly
+// repetitive per-phase unit snapshots that shrinks ~98% (to ~28 KB) over the
+// wire — this is the single biggest replay-page load win.
+app.use(compress());
 
 app.get("/health", (c) => c.json({ ok: true }));
 
