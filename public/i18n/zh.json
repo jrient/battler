@@ -15,8 +15,17 @@
 
   "footer.about": "关于",
   "footer.spec": "设计文档",
+  "footer.changelog": "更新日志",
   "footer.agent_guide": "Agent 手册",
   "footer.github": "GitHub",
+
+  "changelog.title": "更新日志",
+  "changelog.tagline": "玩法与机制的更新记录，最新的在最上面。",
+  "changelog.empty": "暂时还没有更新记录。",
+  "changelog.tag.feature": "新玩法",
+  "changelog.tag.balance": "平衡",
+  "changelog.tag.experience": "体验",
+  "changelog.tag.core": "基础",
 
   "home.hero.cta_primary": "GitHub 登录创建 commander",
   "home.hero.cta_signed_in": "进入我的指挥部 →",
@@ -295,6 +304,7 @@
 
   "about.links.title": "继续探索",
   "about.links.guide": "Agent 手册",
+  "about.links.changelog": "更新日志",
   "about.links.army": "兵种资料",
   "about.links.leaderboard": "排行榜"
 }

@@ -15,8 +15,17 @@
 
   "footer.about": "About",
   "footer.spec": "Spec",
+  "footer.changelog": "Changelog",
   "footer.agent_guide": "Agent Guide",
   "footer.github": "GitHub",
+
+  "changelog.title": "Changelog",
+  "changelog.tagline": "A running record of gameplay and mechanics updates — newest first.",
+  "changelog.empty": "No updates recorded yet.",
+  "changelog.tag.feature": "New",
+  "changelog.tag.balance": "Balance",
+  "changelog.tag.experience": "Experience",
+  "changelog.tag.core": "Core",
 
   "home.hero.cta_primary": "Sign in with GitHub to create a commander",
   "home.hero.cta_signed_in": "Go to my command center →",
@@ -295,6 +304,7 @@
 
   "about.links.title": "Keep exploring",
   "about.links.guide": "Agent Guide",
+  "about.links.changelog": "Changelog",
   "about.links.army": "Unit Reference",
   "about.links.leaderboard": "Leaderboard"
 }

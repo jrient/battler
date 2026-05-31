@@ -1,0 +1,86 @@
+{
+  "entries": [
+    {
+      "date": "2026-05-31",
+      "tags": ["feature"],
+      "zh": {
+        "title": "中立野怪登场",
+        "items": [
+          "棋盘中间的中立列会刷新 8–12 只「野怪」（阵营 N），自成第三阵营。",
+          "野怪平时随机游荡并阻挡格子；一旦被攻击、或有单位走到它相邻格，就会激怒并锁定追杀挑衅者，直到目标死亡。",
+          "击杀野怪不计入胜负，它们在每回合结束时统一行动，并使用独立随机数流，不影响双方原有平衡。",
+          "decideTurn 的 ctx 新增 neutralUnits 字段，agent 可读取野怪信息并据此走位与决策。"
+        ]
+      },
+      "en": {
+        "title": "Neutral monsters arrive",
+        "items": [
+          "8–12 neutral \"monsters\" (faction N) now spawn in the middle neutral columns as a third faction.",
+          "Monsters wander and block cells while passive; the moment they are attacked or a unit steps adjacent, they enrage and hunt whoever provoked them until that target dies.",
+          "Killing monsters never counts toward victory. They act once at end of round on a dedicated RNG stream, so player balance is unchanged.",
+          "decideTurn's ctx gains a neutralUnits field, so agents can read monsters and factor them into movement and decisions."
+        ]
+      }
+    },
+    {
+      "date": "2026-05-30",
+      "tags": ["feature", "balance"],
+      "zh": {
+        "title": "先手硬币 & 竞技场重制",
+        "items": [
+          "每局开局抛硬币决定先手方：先手方每回合先行动，后手方获得 +10 金币补偿，回放页会展示硬币结果。",
+          "竞技场界面全面重做，并重新平衡了内置 bot 与 ELO 计算。",
+          "回放页支持自动播放，并在战斗结束后自动滚动到棋盘。"
+        ]
+      },
+      "en": {
+        "title": "First-mover coin flip & arena overhaul",
+        "items": [
+          "Each match opens with a coin flip for the first mover: the winner acts first every round, the second mover gets +10 gold to compensate, and the replay page shows the result.",
+          "The arena UI was fully reworked, with rebalanced built-in bots and ELO scoring.",
+          "The replay page now autoplays and scrolls to the board after a battle."
+        ]
+      }
+    },
+    {
+      "date": "2026-05-29",
+      "tags": ["feature", "balance"],
+      "zh": {
+        "title": "被动技能 & 新兵种工兵",
+        "items": [
+          "移除主动技能系统，改为各兵种自带被动（骑士受伤减半、法师溅射、牧师治疗、长矛穿刺等）。",
+          "新增第六个兵种「工兵」。",
+          "新增平局检测：长时间毫无进展的对局会提前结束，按剩余兵力强度裁决，不再硬耗到回合上限。"
+        ]
+      },
+      "en": {
+        "title": "Passive abilities & the new Engineer",
+        "items": [
+          "The active-skill system is gone — every unit now has a built-in passive (knight half-damage, mage splash, priest heal, spear pierce, and so on).",
+          "Added a sixth unit type: the Engineer.",
+          "Added stalemate detection: matches with no progress for many turns end early and are decided on remaining army strength, instead of grinding to the turn cap."
+        ]
+      }
+    },
+    {
+      "date": "2026-05-28",
+      "tags": ["balance", "core"],
+      "zh": {
+        "title": "经济与棋盘重做",
+        "items": [
+          "经济系统重做：用金币购买军队、攻击不再消耗行动点，购买窗口为前 10 回合。",
+          "棋盘定为 16×12，每回合固定 +10 金币收入，单位「强度」按购买成本计算。",
+          "挑战对手被限制在与自己分数 ±10% 的区间内，匹配更公平。"
+        ]
+      },
+      "en": {
+        "title": "Economy & board redesign",
+        "items": [
+          "Reworked economy: buy your army with gold, attacks no longer cost action points, and the buy window is the first 10 turns.",
+          "The board is fixed at 16×12 with a flat +10 gold/turn income, and unit \"strength\" is measured by purchase cost.",
+          "Challenges are restricted to opponents within ±10% of your score for fairer matchmaking."
+        ]
+      }
+    }
+  ]
+}

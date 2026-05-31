@@ -66,6 +66,7 @@
       <footer id="site-footer">
         <div class="links">
           <a href="/${langFromPath()}/about" data-i18n="footer.about">About</a>
+          <a href="/${langFromPath()}/changelog" data-i18n="footer.changelog">Changelog</a>
           <a href="/api/agent-guide" target="_blank" data-i18n="footer.agent_guide">Agent Guide</a>
           <a href="https://github.com/" target="_blank" data-i18n="footer.github">GitHub</a>
         </div>

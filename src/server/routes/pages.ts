@@ -15,6 +15,7 @@ const PAGE_FILES: Record<string, string> = {
   leaderboard: "leaderboard.html",
   army: "army.html",
   about: "about.html",
+  changelog: "changelog.html",
   issues: "issues.html",
   issueDetail: "issue.html",
   stub: "stub.html",
@@ -64,6 +65,7 @@ const LANG_PAGES: ReadonlyArray<[suffix: string, page: keyof typeof PAGE_FILES]>
   ["/leaderboard", "leaderboard"],
   ["/army", "army"],
   ["/about", "about"],
+  ["/changelog", "changelog"],
   ["/issues", "issues"],
   ["/issues/:id", "issueDetail"],
 ];

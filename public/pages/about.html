@@ -282,6 +282,7 @@ function decideTurn(ctx) {
           <h2 data-i18n="about.links.title">继续探索</h2>
           <div class="links">
             <a class="link-btn" href="/api/agent-guide" data-i18n="about.links.guide">Agent 手册</a>
+            <a class="link-btn" id="link-changelog" href="/zh/changelog" data-i18n="about.links.changelog">更新日志</a>
             <a class="link-btn" id="link-army" href="/zh/army" data-i18n="about.links.army">兵种资料</a>
             <a class="link-btn" id="link-leaderboard" href="/zh/leaderboard" data-i18n="about.links.leaderboard">排行榜</a>
           </div>
@@ -313,6 +314,7 @@ function decideTurn(ctx) {
 
       window.i18nReady && window.i18nReady.then(() => {
         const lang = window.i18n.lang;
+        document.getElementById("link-changelog").href = `/${lang}/changelog`;
         document.getElementById("link-army").href = `/${lang}/army`;
         document.getElementById("link-leaderboard").href = `/${lang}/leaderboard`;
       });
