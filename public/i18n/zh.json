@@ -165,6 +165,7 @@
   "phase.skill": "技能阶段",
   "phase.death": "阵亡结算",
   "phase.buy": "购买阶段",
+  "phase.monster": "野怪行动",
 
   "unit.knight": "重甲骑士",
   "unit.spear": "长矛兵",

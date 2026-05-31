@@ -29,6 +29,7 @@ describe("stalemate detection", () => {
       decideB: idleArmy(1),
       seed: 42,
       matchId: "test_stale",
+      monsters: false,
     });
 
     // Both sides field units but never engage → no progress → early stop.

@@ -7,6 +7,7 @@ function makeCtx(overrides: Partial<DecideCtx> = {}): DecideCtx {
   return {
     myUnits: [],
     enemyUnits: [],
+    neutralUnits: [],
     myArmy: [],
     enemyArmy: [],
     myAP: 10,

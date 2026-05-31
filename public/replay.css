@@ -772,6 +772,7 @@ body {
 #events-list .event-skill { color: #da70d6; }
 #events-list .event-death { color: #ff4444; font-weight: bold; }
 #events-list .event-recruit { color: #44ddff; }
+#events-list .event-monster { color: #6ed06e; }
 #events-list .event-end { color: var(--gold); font-weight: bold; }
 
 /* Result badge */

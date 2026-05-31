@@ -268,6 +268,7 @@ export function decideTurn(ctx) {
 interface DecideCtx {
   myUnits:    Unit[]        // 我方存活单位(死亡单位已过滤)
   enemyUnits: Unit[]        // 敌方存活单位,完全可见
+  neutralUnits: Unit[]      // 中立野怪(side "N", type "monster"),第三阵营,击杀不计胜负
   myArmy:     ArmyEntry[]   // 本局发牌的兵种概览(开局已知,不变)
   enemyArmy:  ArmyEntry[]   // 同上,敌方
   myAP:       number        // 固定 5

@@ -95,3 +95,28 @@ export const UNITS: Record<UnitType, UnitDef> = {
 // Mage splash: enemies within this Chebyshev radius of the primary target take
 // floor(atk/2) extra damage.
 export const SPLASH_RADIUS = 1;
+
+// ===== Neutral monsters =====
+// A third faction (side "N") that spawns in the neutral middle columns. Passive
+// until provoked — then it hunts whoever first attacked it or stepped adjacent.
+// Never buyable, never counts toward victory. Stats live here (not in UNITS) so
+// "monster" stays out of the purchasable UnitType set.
+export const MONSTER: UnitDef = {
+  type: "monster" as UnitType,
+  hp: 300,
+  atk: 10,
+  range: 1,
+  moveRange: 2,
+  actionAP: 1,
+  cost: Number.POSITIVE_INFINITY,
+  initiative: 0,
+  special: null,
+};
+
+// How many monsters spawn (inclusive range), and the column band they spawn in.
+export const MONSTER_MIN = 8;
+export const MONSTER_MAX = 12;
+export const NEUTRAL_COL_MIN = 4;
+export const NEUTRAL_COL_MAX = 11;
+// A unit within this Chebyshev distance of an un-provoked monster enrages it.
+export const MONSTER_AGGRO_RADIUS = 1;

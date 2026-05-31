@@ -165,6 +165,7 @@
   "phase.skill": "Skill",
   "phase.death": "Death",
   "phase.buy": "Buy",
+  "phase.monster": "Monsters",
 
   "unit.knight": "Knight",
   "unit.spear": "Spear",

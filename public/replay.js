@@ -388,6 +388,7 @@ class ReplayApp {
       if (ev.includes("[mov]")) cls = "event-move";
       else if (ev.includes("[atk]")) cls = ev.includes("healed") ? "event-skill" : "event-attack";
       else if (ev.includes("[die]")) cls = "event-death";
+      else if (ev.includes("[mon]")) cls = "event-monster";
       else if (ev.includes("[buy]")) cls = "event-recruit";
       else if (ev.includes("[END]")) cls = "event-end";
       div.className = cls;
@@ -655,6 +656,8 @@ class ReplayApp {
 
     let aliveA = 0, aliveB = 0;
     for (const u of snapshot) {
+      // Neutral monsters (side "N") belong to no player — keep them off both rosters.
+      if (u.side !== "A" && u.side !== "B") continue;
       const el = document.createElement("div");
       el.className = `roster-unit side-${u.side.toLowerCase()}${u.hp <= 0 ? " dead" : ""}`;
       el.innerHTML = `<div class="roster-fig" style="background-image:url('${spriteURL(u.type, u.side)}')"></div><div class="roster-hp"><div class="roster-hp-fill" style="width:${Math.max(0,u.hp/u.maxHp*100)}%;background:${u.hp/u.maxHp>0.6?"var(--hp-green)":u.hp/u.maxHp>0.3?"var(--hp-yellow)":"var(--hp-red)"}"></div></div>`;
@@ -714,6 +717,7 @@ class ReplayApp {
       case "attack": return 1500;
       case "death": return 800;
       case "buy": return 600;
+      case "monster": return 1000;
       default: return 600;
     }
   }

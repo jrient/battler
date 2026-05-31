@@ -89,6 +89,7 @@ export function loadAgent(code: string): SandboxedAgent {
       const minimalCtx = {
         myUnits: ctx.myUnits,
         enemyUnits: ctx.enemyUnits,
+        neutralUnits: ctx.neutralUnits,
         myArmy: ctx.myArmy,
         enemyArmy: ctx.enemyArmy,
         myAP: ctx.myAP,

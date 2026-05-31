@@ -25,10 +25,13 @@
     y: "#aef0ff", Y: "#46b6e8",                      // magic
     i: "#6f9bd6", I: "#3f5f93",                      // eye iris
     p: "#ff9ec4", P: "#e06a9b",                      // blush / pink accent
+    q: "#ff4848", Q: "#b81f1f",                      // monster eye (angry red)
   };
   const TEAM = {
     a: { "1": "#8fbdf2", "2": "#4f86c6", "3": "#2f5586" },
     b: { "1": "#f29a9a", "2": "#cf5a5a", "3": "#7e3030" },
+    // Neutral monsters (side "N") — sickly toxic green, belongs to no player.
+    n: { "1": "#9be08f", "2": "#5a9c4f", "3": "#33632c" },
   };
 
   function makeGrid(w, h) {
@@ -121,6 +124,34 @@
       px(g, 18, 4, "m");
       rect(g, 17, 18, 4, 1, "g");
       px(g, 18, 19, "W");
+      return { w: 24, h: 28, g };
+    },
+    // Neutral monster: a squat one-eyed, fanged blob-beast. No team flip in CSS,
+    // tinted by the neutral "n" palette so it reads as a third faction.
+    monster() {
+      const g = makeGrid(24, 28);
+      // bulbous body with top highlight / bottom shadow
+      ell(g, 11.5, 17, 9.5, 9, "2");
+      ell(g, 11.5, 13, 8, 5.5, "1");
+      ell(g, 11.5, 21, 9, 5, "3");
+      rect(g, 3, 23, 18, 3, "3");
+      // two silver horns + a few back spikes
+      rect(g, 4, 4, 2, 5, "z"); px(g, 5, 3, "z"); px(g, 4, 9, "Z");
+      rect(g, 18, 4, 2, 5, "z"); px(g, 18, 3, "z"); px(g, 19, 9, "Z");
+      px(g, 8, 7, "z"); px(g, 11, 6, "z"); px(g, 14, 7, "z");
+      // angry brow
+      rect(g, 8, 11, 3, 1, "O"); rect(g, 13, 11, 3, 1, "O");
+      // single big red eye
+      ell(g, 11.5, 15, 4.2, 4.2, "e");
+      ell(g, 11.5, 15, 2.4, 2.4, "q");
+      px(g, 11, 14, "Q"); px(g, 12, 14, "Q");
+      px(g, 11, 13, "c");
+      // fanged mouth
+      rect(g, 7, 20, 10, 2, "O");
+      px(g, 8, 20, "e"); px(g, 11, 20, "e"); px(g, 14, 20, "e"); px(g, 16, 20, "e");
+      px(g, 8, 22, "e"); px(g, 10, 22, "e"); px(g, 13, 22, "e"); px(g, 15, 22, "e");
+      // little clawed feet
+      rect(g, 5, 26, 3, 1, "3"); rect(g, 16, 26, 3, 1, "3");
       return { w: 24, h: 28, g };
     },
   };

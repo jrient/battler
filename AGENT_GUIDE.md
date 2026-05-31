@@ -73,6 +73,10 @@ export function decideTurn(ctx) {
   // ctx.myUnits    — your alive units (array; EMPTY on turn 1 — you start with nothing!)
   // ctx.enemyUnits — enemy alive units (array, fully visible; if you move SECOND
   //                  this already reflects the enemy's move/attacks THIS round)
+  // ctx.neutralUnits — neutral monsters (side "N"): a third faction in the middle
+  //                  columns. Killing them does NOT win the match, but they block
+  //                  cells and, once attacked or stepped next to, hunt and maul
+  //                  whoever provoked them. Empty if the board has no monsters.
   // ctx.myAP       — action points to operate units this half-turn (10)
   // ctx.myMoney    — money to buy new units this round (2nd mover's includes +10)
   // ctx.turn       — round number (1 to 100)
@@ -347,6 +351,7 @@ Initiative = action order within a phase: higher acts first (lands killing blows
     cooldowns: {}           // unused — no cooldowns in the game anymore
   }, ...],
   enemyUnits: [{ ... }],   // same format, fully visible
+  neutralUnits: [{ ... }], // monsters (side "N"), type "monster"; third faction, killing them never wins
   myArmy: [{ type: "knight", count: 1 }, ...],  // your composition so far (empty on turn 1)
   enemyArmy: [{ ... }],    // enemy composition
   myAP: 10,                // movement budget this half-turn (only moving costs AP)

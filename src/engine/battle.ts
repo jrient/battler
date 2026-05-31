@@ -1,5 +1,11 @@
 import {
   UNITS,
+  MONSTER,
+  MONSTER_MIN,
+  MONSTER_MAX,
+  NEUTRAL_COL_MIN,
+  NEUTRAL_COL_MAX,
+  MONSTER_AGGRO_RADIUS,
   BOARD_WIDTH,
   BOARD_HEIGHT,
   MAX_TURNS,
@@ -11,7 +17,7 @@ import {
   SPLASH_RADIUS,
   STALE_TURNS_LIMIT,
 } from "./units.js";
-import { makeRng } from "./rng.js";
+import { makeRng, randInt } from "./rng.js";
 import type {
   Action,
   ArmyEntry,
@@ -25,15 +31,25 @@ import type {
   TurnRecord,
   TurnSnapshot,
   Unit,
+  UnitDef,
   UnitSnapshot,
   UnitType,
 } from "./types.js";
+
+// Stats for any board entity: monsters carry their own def, everything else
+// uses the buyable-unit table.
+function defOf(u: Unit): UnitDef {
+  return u.type === "monster" ? MONSTER : UNITS[u.type];
+}
 
 export interface RunMatchOptions {
   decideA: DecideFn;
   decideB: DecideFn;
   seed: number;
   matchId: string;
+  // Spawn neutral monsters (default true). Tests disable this for deterministic
+  // frozen-board scenarios.
+  monsters?: boolean;
 }
 
 // Which side won the opening coin toss (moves first every round). Purely a
@@ -66,6 +82,13 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
     A: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0, engineer: 0 },
     B: { knight: 0, spear: 0, archer: 0, mage: 0, priest: 0, engineer: 0 },
   };
+
+  // Neutral monsters use a dedicated rng stream (seed ^ "mons") so their spawn
+  // and wandering never perturb the buy-placement rng — keeps player balance
+  // identical to a monster-free match.
+  const monsterRng = makeRng((opts.seed ^ 0x6d6f6e73) >>> 0);
+  const monstersOn = opts.monsters !== false;
+  if (monstersOn) spawnMonsters(units, monsterRng);
 
   const allEvents: string[] = [];
   const turns: TurnRecord[] = [];
@@ -135,12 +158,14 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
 
       const aliveMine = units.filter((u) => u.side === mover && u.hp > 0);
       const aliveOpp = units.filter((u) => u.side === opp && u.hp > 0);
+      const aliveNeutral = units.filter((u) => u.side === "N" && u.hp > 0);
       const moneyNow = mover === "A" ? moneyA : moneyB;
       const moneyAvail = turnIdx <= BUY_TURNS ? moneyNow : 0;
 
       const ctx = buildCtx(
         aliveMine,
         aliveOpp,
+        aliveNeutral,
         armyEntries(units, mover),
         armyEntries(units, opp),
         turnIdx,
@@ -192,6 +217,17 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
 
     phaseBuy(heldBuys, units, seqCounters, rng, turnEvents);
     phases.push({ phase: "buy", units: snapshotUnits(units) });
+
+    // End of round: every monster acts once — hunt its target (move + maul) or,
+    // if un-provoked, wander one random cell. Deaths it causes are counted here.
+    if (monstersOn && units.some((u) => u.side === "N" && u.hp > 0)) {
+      phaseMonsters(units, monsterRng, turnEvents);
+      phases.push({ phase: "monster", units: snapshotUnits(units) });
+      const md = phaseDeath(units, turnEvents);
+      aLost += md.aLost;
+      bLost += md.bLost;
+      phases.push({ phase: "death", units: snapshotUnits(units) });
+    }
 
     totalDamageDealtA += dmgFromA;
     totalDamageDealtB += dmgFromB;
@@ -372,7 +408,7 @@ function validateAndSplit(
 function computeApCost(action: Action, unit: Unit): number | null {
   switch (action.action) {
     case "move":
-      return UNITS[unit.type].actionAP;
+      return defOf(unit).actionAP;
     case "attack":
       return 0;
     case "defend":
@@ -394,7 +430,7 @@ function applyDefendIntents(actions: ValidatedAction[], events: string[]): void 
 function phaseMovement(actions: ValidatedAction[], allUnits: Unit[], events: string[]): void {
   const moveActions = actions
     .filter((va) => va.raw.action === "move")
-    .sort((a, b) => UNITS[b.unit.type].initiative - UNITS[a.unit.type].initiative);
+    .sort((a, b) => defOf(b.unit).initiative - defOf(a.unit).initiative);
 
   for (const va of moveActions) {
     if (va.raw.action !== "move") continue;
@@ -406,7 +442,7 @@ function phaseMovement(actions: ValidatedAction[], allUnits: Unit[], events: str
       continue;
     }
     const dist = manhattan(unit.pos, target);
-    if (dist === 0 || dist > UNITS[unit.type].moveRange) {
+    if (dist === 0 || dist > defOf(unit).moveRange) {
       events.push(`[mov] ${unit.id} move failed: target [${target}] out of range`);
       continue;
     }
@@ -424,7 +460,7 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
   let totalDamage = 0;
   const attackActions = actions
     .filter((va) => va.raw.action === "attack")
-    .sort((a, b) => UNITS[b.unit.type].initiative - UNITS[a.unit.type].initiative);
+    .sort((a, b) => defOf(b.unit).initiative - defOf(a.unit).initiative);
 
   for (const va of attackActions) {
     const raw = va.raw;
@@ -437,17 +473,17 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       continue;
     }
     const dist = manhattan(attacker.pos, target.pos);
-    if (dist > UNITS[attacker.type].range) {
+    if (dist > defOf(attacker).range) {
       events.push(`[atk] ${attacker.id} attack failed: target ${target.id} out of range (d=${dist})`);
       continue;
     }
 
-    const atk = UNITS[attacker.type].atk;
+    const atk = defOf(attacker).atk;
 
     // Priest passive: targeting a friendly unit heals it for atk*2 instead of
     // dealing damage.
     if (target.side === attacker.side) {
-      if (UNITS[attacker.type].special !== "heal_ally") {
+      if (defOf(attacker).special !== "heal_ally") {
         events.push(`[atk] ${attacker.id} attack failed: cannot attack ally ${target.id}`);
         continue;
       }
@@ -461,7 +497,14 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
     totalDamage += dealt;
     events.push(`[atk] ${attacker.id} attacked ${target.id} for ${dealt} dmg (hp ${target.hp}/${target.maxHp})`);
 
-    if (UNITS[attacker.type].special === "pierce_one") {
+    // Attacking a neutral monster enrages it: the first attacker (while it has no
+    // living target) becomes the one it hunts.
+    if (target.side === "N" && !hasLiveTarget(target, allUnits)) {
+      target.aggroTargetId = attacker.id;
+      events.push(`[mon] ${target.id} enraged by ${attacker.id} (attacked)`);
+    }
+
+    if (defOf(attacker).special === "pierce_one") {
       const dx = Math.sign(target.pos[0] - attacker.pos[0]);
       const dy = Math.sign(target.pos[1] - attacker.pos[1]);
       const behind: Position = [target.pos[0] + dx, target.pos[1] + dy];
@@ -476,7 +519,7 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
     }
 
     // Mage passive: enemies around the primary target take floor(atk/2) splash.
-    if (UNITS[attacker.type].special === "splash") {
+    if (defOf(attacker).special === "splash") {
       const splashDmg = Math.floor(atk / 2);
       const hits: string[] = [];
       for (const u of allUnits) {
@@ -504,8 +547,9 @@ function phaseDeath(units: Unit[], events: string[]): { aLost: number; bLost: nu
     if (u.hp <= 0 && !u.cooldowns.__dead__) {
       u.cooldowns.__dead__ = 999;
       events.push(`[die] ${u.id} died (side ${u.side})`);
+      // Monsters (side "N") die too, but are never a player's loss.
       if (u.side === "A") aLost++;
-      else bLost++;
+      else if (u.side === "B") bLost++;
     }
   }
   return { aLost, bLost };
@@ -560,7 +604,7 @@ function phaseBuy(
 
 function applyDamage(target: Unit, rawDmg: number): number {
   let dmg = rawDmg;
-  if (UNITS[target.type].special === "damage_reduction_half") dmg = Math.floor(dmg / 2);
+  if (defOf(target).special === "damage_reduction_half") dmg = Math.floor(dmg / 2);
   if (target.defending) dmg = Math.floor(dmg / 2);
   target.hp -= dmg;
   return dmg;
@@ -569,12 +613,13 @@ function applyDamage(target: Unit, rawDmg: number): number {
 function computeRemainingStrength(units: Unit[], side: Side): number {
     return units
     .filter((u) => u.side === side && u.hp > 0)
-    .reduce((sum, u) => sum + UNITS[u.type].cost, 0);
+    .reduce((sum, u) => sum + defOf(u).cost, 0);
 }
 
 function buildCtx(
   myUnits: Unit[],
   enemyUnits: Unit[],
+  neutralUnits: Unit[],
   myArmy: ArmyEntry[],
   enemyArmy: ArmyEntry[],
   turn: number,
@@ -588,6 +633,7 @@ function buildCtx(
   return {
     myUnits: myUnits.map(toPublic),
     enemyUnits: enemyUnits.map(toPublic),
+    neutralUnits: neutralUnits.map(toPublic),
     myArmy,
     enemyArmy,
     myAP: AP_PER_TURN,
@@ -604,7 +650,7 @@ function buildCtx(
 function armyEntries(units: Unit[], side: Side): ArmyEntry[] {
   const counts = new Map<UnitType, number>();
   for (const u of units) {
-    if (u.side !== side) continue;
+    if (u.side !== side || u.type === "monster") continue;
     counts.set(u.type, (counts.get(u.type) ?? 0) + 1);
   }
   return Array.from(counts.entries()).map(([type, count]) => ({ type, count }));
@@ -641,8 +687,10 @@ function snapshotUnits(units: Unit[]): UnitSnapshot[] {
 // Compact fingerprint of the living board state. Two turns with the same
 // signature mean nothing changed: no HP shifts, no successful moves, no buys.
 function boardSignature(units: Unit[]): string {
+  // Players only — wandering monsters change the board every round, but that is
+  // not "player progress", so they must not reset stalemate detection.
   return units
-    .filter((u) => u.hp > 0)
+    .filter((u) => u.hp > 0 && (u.side === "A" || u.side === "B"))
     .map((u) => `${u.id}:${u.hp}:${u.pos[0]},${u.pos[1]}`)
     .sort()
     .join("|");
@@ -662,4 +710,119 @@ function samePos(a: Position, b: Position): boolean {
 
 function inBounds(p: Position): boolean {
   return p[0] >= 0 && p[0] < BOARD_WIDTH && p[1] >= 0 && p[1] < BOARD_HEIGHT;
+}
+
+// ===== Neutral monsters =====
+
+// Place MONSTER_MIN..MONSTER_MAX monsters on distinct empty cells in the neutral
+// column band. Called once, before the buy window, so the band is fully empty.
+function spawnMonsters(units: Unit[], rng: ReturnType<typeof makeRng>): void {
+  const count = randInt(rng, MONSTER_MIN, MONSTER_MAX + 1); // inclusive [MIN, MAX]
+  const cells: Position[] = [];
+  for (let x = NEUTRAL_COL_MIN; x <= NEUTRAL_COL_MAX; x++) {
+    for (let y = 0; y < BOARD_HEIGHT; y++) cells.push([x, y]);
+  }
+  for (let i = 0; i < count && cells.length > 0; i++) {
+    const idx = Math.floor(rng() * cells.length);
+    const pos = cells.splice(idx, 1)[0]!;
+    units.push({
+      id: `monster_${i + 1}`,
+      type: "monster",
+      side: "N",
+      pos,
+      hp: MONSTER.hp,
+      maxHp: MONSTER.hp,
+      cooldowns: {},
+      defending: false,
+      aggroTargetId: null,
+    });
+  }
+}
+
+function hasLiveTarget(monster: Unit, units: Unit[]): boolean {
+  if (!monster.aggroTargetId) return false;
+  return units.some((u) => u.id === monster.aggroTargetId && u.hp > 0);
+}
+
+// End-of-round monster activation. Each living monster either hunts its target
+// (step toward it, then maul if in range) or, if un-provoked, wanders one cell.
+function phaseMonsters(units: Unit[], rng: ReturnType<typeof makeRng>, events: string[]): void {
+  const monsters = units.filter((u) => u.side === "N" && u.hp > 0);
+  for (const m of monsters) {
+    // A dead/stale target → next judgment is to go passive again.
+    if (m.aggroTargetId && !hasLiveTarget(m, units)) m.aggroTargetId = null;
+
+    // Un-provoked: nearest player unit within aggro radius enrages it.
+    if (!m.aggroTargetId) {
+      let best: Unit | null = null;
+      let bestD = Infinity;
+      for (const u of units) {
+        if (u.hp <= 0 || (u.side !== "A" && u.side !== "B")) continue;
+        const d = chebyshev(m.pos, u.pos);
+        if (d <= MONSTER_AGGRO_RADIUS && d < bestD) {
+          best = u;
+          bestD = d;
+        }
+      }
+      if (best) {
+        m.aggroTargetId = best.id;
+        events.push(`[mon] ${m.id} enraged by ${best.id} (proximity)`);
+      }
+    }
+
+    const target = m.aggroTargetId
+      ? units.find((u) => u.id === m.aggroTargetId && u.hp > 0)
+      : undefined;
+    if (target) {
+      moveMonsterToward(m, target, units, events);
+      if (manhattan(m.pos, target.pos) <= MONSTER.range) {
+        const dealt = applyDamage(target, MONSTER.atk);
+        events.push(`[mon] ${m.id} mauled ${target.id} for ${dealt} dmg (hp ${target.hp}/${target.maxHp})`);
+      }
+    } else {
+      wanderMonster(m, units, rng);
+    }
+  }
+}
+
+// Step up to MONSTER.moveRange cells toward the target along axes, stopping once
+// adjacent enough to attack. Respects bounds and occupancy; stops if blocked.
+function moveMonsterToward(m: Unit, target: Unit, units: Unit[], events: string[]): void {
+  const from: Position = [m.pos[0], m.pos[1]];
+  let steps = MONSTER.moveRange;
+  while (steps > 0 && manhattan(m.pos, target.pos) > MONSTER.range) {
+    const dx = target.pos[0] - m.pos[0];
+    const dy = target.pos[1] - m.pos[1];
+    const tries: Position[] = [];
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (dx !== 0) tries.push([m.pos[0] + Math.sign(dx), m.pos[1]]);
+      if (dy !== 0) tries.push([m.pos[0], m.pos[1] + Math.sign(dy)]);
+    } else {
+      if (dy !== 0) tries.push([m.pos[0], m.pos[1] + Math.sign(dy)]);
+      if (dx !== 0) tries.push([m.pos[0] + Math.sign(dx), m.pos[1]]);
+    }
+    const next = tries.find((p) => inBounds(p) && !occupied(units, p, m.id));
+    if (!next) break;
+    m.pos = next;
+    steps--;
+  }
+  if (!samePos(from, m.pos)) {
+    events.push(`[mon] ${m.id} moved [${from[0]},${from[1]}]→[${m.pos[0]},${m.pos[1]}]`);
+  }
+}
+
+// Passive movement: one random step into an empty orthogonal neighbor.
+function wanderMonster(m: Unit, units: Unit[], rng: ReturnType<typeof makeRng>): void {
+  const neighbors = ([
+    [m.pos[0] + 1, m.pos[1]],
+    [m.pos[0] - 1, m.pos[1]],
+    [m.pos[0], m.pos[1] + 1],
+    [m.pos[0], m.pos[1] - 1],
+  ] as Position[]).filter((p) => inBounds(p) && !occupied(units, p, m.id));
+  if (neighbors.length === 0) return;
+  m.pos = neighbors[Math.floor(rng() * neighbors.length)]!;
+}
+
+function occupied(units: Unit[], pos: Position, exceptId: string): boolean {
+  return units.some((u) => u.hp > 0 && u.id !== exceptId && samePos(u.pos, pos));
 }
