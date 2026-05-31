@@ -3,9 +3,10 @@ import {
   MONSTER,
   MONSTER_MIN,
   MONSTER_MAX,
+  MONSTER_BOUNTY,
+  MONSTER_LEASH,
   NEUTRAL_COL_MIN,
   NEUTRAL_COL_MAX,
-  MONSTER_AGGRO_RADIUS,
   BOARD_WIDTH,
   BOARD_HEIGHT,
   MAX_TURNS,
@@ -160,7 +161,9 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       const aliveOpp = units.filter((u) => u.side === opp && u.hp > 0);
       const aliveNeutral = units.filter((u) => u.side === "N" && u.hp > 0);
       const moneyNow = mover === "A" ? moneyA : moneyB;
-      const moneyAvail = turnIdx <= BUY_TURNS ? moneyNow : 0;
+      // You can spend gold on ANY round; only income is gated to the buy window.
+      // So after turn BUY_TURNS, monster bounties are your only way to keep buying.
+      const moneyAvail = moneyNow;
 
       const ctx = buildCtx(
         aliveMine,
@@ -191,9 +194,9 @@ export function runMatch(opts: RunMatchOptions): MatchOutput {
       phaseMovement(combat, units, turnEvents);
       phases.push({ phase: "move", units: snapshotUnits(units) });
 
-      const dmg = phaseAttack(combat, units, turnEvents);
-      if (mover === "A") dmgFromA += dmg;
-      else dmgFromB += dmg;
+      const { damage: dmg, bounty } = phaseAttack(combat, units, turnEvents);
+      if (mover === "A") { dmgFromA += dmg; moneyA += bounty; }
+      else { dmgFromB += dmg; moneyB += bounty; }
       phases.push({ phase: "attack", units: snapshotUnits(units) });
 
       const deaths = phaseDeath(units, turnEvents);
@@ -456,8 +459,23 @@ function phaseMovement(actions: ValidatedAction[], allUnits: Unit[], events: str
   }
 }
 
-function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: string[]): number {
+// Returns total damage dealt and the gold bounty earned this half-turn. Only the
+// active mover attacks here, so any monster killed is credited to that mover.
+function phaseAttack(
+  actions: ValidatedAction[],
+  allUnits: Unit[],
+  events: string[],
+): { damage: number; bounty: number } {
   let totalDamage = 0;
+  let bounty = 0;
+  // A monster dies only from player attack damage (monsters never kill monsters),
+  // so detect the killing blow right where each hit lands.
+  const payIfKilledMonster = (u: Unit, hpBefore: number, killer: Unit) => {
+    if (u.side === "N" && hpBefore > 0 && u.hp <= 0) {
+      bounty += MONSTER_BOUNTY;
+      events.push(`[mon] ${u.id} slain by ${killer.id} — bounty +${MONSTER_BOUNTY}g`);
+    }
+  };
   const attackActions = actions
     .filter((va) => va.raw.action === "attack")
     .sort((a, b) => defOf(b.unit).initiative - defOf(a.unit).initiative);
@@ -493,6 +511,7 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       continue;
     }
 
+    const targetHpBefore = target.hp;
     const dealt = applyDamage(target, atk);
     totalDamage += dealt;
     events.push(`[atk] ${attacker.id} attacked ${target.id} for ${dealt} dmg (hp ${target.hp}/${target.maxHp})`);
@@ -503,6 +522,7 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       target.aggroTargetId = attacker.id;
       events.push(`[mon] ${target.id} enraged by ${attacker.id} (attacked)`);
     }
+    payIfKilledMonster(target, targetHpBefore, attacker);
 
     if (defOf(attacker).special === "pierce_one") {
       const dx = Math.sign(target.pos[0] - attacker.pos[0]);
@@ -511,9 +531,11 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       if (inBounds(behind)) {
         const pierceTarget = allUnits.find((u) => u.hp > 0 && samePos(u.pos, behind) && u.id !== attacker.id);
         if (pierceTarget) {
+          const pierceBefore = pierceTarget.hp;
           const pierceDmg = applyDamage(pierceTarget, Math.floor(atk / 2));
           totalDamage += pierceDmg;
           events.push(`[atk] ${attacker.id} pierce hit ${pierceTarget.id} for ${pierceDmg} dmg`);
+          payIfKilledMonster(pierceTarget, pierceBefore, attacker);
         }
       }
     }
@@ -527,9 +549,11 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
         if (u.id === target.id) continue;
         if (u.side === attacker.side) continue;
         if (chebyshev(u.pos, target.pos) <= SPLASH_RADIUS) {
+          const splashBefore = u.hp;
           const dealtSplash = applyDamage(u, splashDmg);
           totalDamage += dealtSplash;
           hits.push(`${u.id}(${dealtSplash})`);
+          payIfKilledMonster(u, splashBefore, attacker);
         }
       }
       if (hits.length) {
@@ -537,7 +561,7 @@ function phaseAttack(actions: ValidatedAction[], allUnits: Unit[], events: strin
       }
     }
   }
-  return totalDamage;
+  return { damage: totalDamage, bounty };
 }
 
 function phaseDeath(units: Unit[], events: string[]): { aLost: number; bLost: number } {
@@ -735,6 +759,7 @@ function spawnMonsters(units: Unit[], rng: ReturnType<typeof makeRng>): void {
       cooldowns: {},
       defending: false,
       aggroTargetId: null,
+      anchor: [pos[0], pos[1]],
     });
   }
 }
@@ -746,27 +771,24 @@ function hasLiveTarget(monster: Unit, units: Unit[]): boolean {
 
 // End-of-round monster activation. Each living monster either hunts its target
 // (step toward it, then maul if in range) or, if un-provoked, wanders one cell.
+// Monsters are no longer provoked by mere proximity — only by being ATTACKED
+// (see phaseAttack) — and they give up once a target outruns the leash, so units
+// can walk through the neutral band safely and only fight monsters on purpose.
 function phaseMonsters(units: Unit[], rng: ReturnType<typeof makeRng>, events: string[]): void {
   const monsters = units.filter((u) => u.side === "N" && u.hp > 0);
   for (const m of monsters) {
-    // A dead/stale target → next judgment is to go passive again.
-    if (m.aggroTargetId && !hasLiveTarget(m, units)) m.aggroTargetId = null;
-
-    // Un-provoked: nearest player unit within aggro radius enrages it.
-    if (!m.aggroTargetId) {
-      let best: Unit | null = null;
-      let bestD = Infinity;
-      for (const u of units) {
-        if (u.hp <= 0 || (u.side !== "A" && u.side !== "B")) continue;
-        const d = chebyshev(m.pos, u.pos);
-        if (d <= MONSTER_AGGRO_RADIUS && d < bestD) {
-          best = u;
-          bestD = d;
-        }
-      }
-      if (best) {
-        m.aggroTargetId = best.id;
-        events.push(`[mon] ${m.id} enraged by ${best.id} (proximity)`);
+    // Drop the target if it died, or if the chase has pulled the monster more
+    // than MONSTER_LEASH cells from its spawn anchor → go passive. Anchor-based
+    // (not target-distance) so it works even though units move as fast as the
+    // monster: chasing inherently drags it away from home until it gives up.
+    if (m.aggroTargetId) {
+      const tgt = units.find((u) => u.id === m.aggroTargetId);
+      const anchor = m.anchor ?? m.pos;
+      if (!tgt || tgt.hp <= 0) {
+        m.aggroTargetId = null;
+      } else if (chebyshev(m.pos, anchor) > MONSTER_LEASH) {
+        m.aggroTargetId = null;
+        events.push(`[mon] ${m.id} lost interest in ${tgt.id} (leashed home)`);
       }
     }
 

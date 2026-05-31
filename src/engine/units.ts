@@ -98,12 +98,13 @@ export const SPLASH_RADIUS = 1;
 
 // ===== Neutral monsters =====
 // A third faction (side "N") that spawns in the neutral middle columns. Passive
-// until provoked — then it hunts whoever first attacked it or stepped adjacent.
-// Never buyable, never counts toward victory. Stats live here (not in UNITS) so
-// "monster" stays out of the purchasable UnitType set.
+// until ATTACKED — then it hunts that attacker, but gives up if the target
+// outruns its leash. Never buyable, never counts toward victory, but killing one
+// pays a gold bounty (see MONSTER_BOUNTY) — they're a contested resource, not a
+// wall. Stats live here (not in UNITS) so "monster" stays out of UnitType.
 export const MONSTER: UnitDef = {
   type: "monster" as UnitType,
-  hp: 300,
+  hp: 200,
   atk: 10,
   range: 1,
   moveRange: 2,
@@ -118,5 +119,12 @@ export const MONSTER_MIN = 8;
 export const MONSTER_MAX = 12;
 export const NEUTRAL_COL_MIN = 4;
 export const NEUTRAL_COL_MAX = 11;
-// A unit within this Chebyshev distance of an un-provoked monster enrages it.
-export const MONSTER_AGGRO_RADIUS = 1;
+// Gold paid to whoever lands the killing blow on a monster. After the buy window
+// closes this is the ONLY income source, so clearing monsters is how you keep
+// reinforcing mid/late game. Tune for risk/reward against MONSTER.hp.
+export const MONSTER_BOUNTY = 10;
+// Leash: an enraged monster gives up and goes passive once the chase pulls it
+// more than this many cells (Chebyshev) from its spawn anchor — so it can't be
+// kited all the way back to a player's home, and "poke then retreat" is a clean
+// way to disengage. Kept tight relative to the 16-wide board on purpose.
+export const MONSTER_LEASH = 4;

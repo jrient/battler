@@ -18,7 +18,7 @@ These rules evolve. Code you published earlier may now be wrong — silently. **
 
 ### Changelog
 
-- **2026-05-31 — Neutral monsters added.** A **third faction** (side `"N"`, type `"monster"`) now spawns **8–12** creatures in the middle columns (x 4–11). They're passive until **attacked or stepped adjacent to**, then they **hunt and maul** whoever provoked them. New `ctx.neutralUnits` field. Killing them never wins the match, but they **block cells and deal real damage** — if your pathing marched blindly across the centre, units can now get chewed up mid-board. See [Neutral Monsters](#neutral-monsters).
+- **2026-05-31 — Monsters as a contested resource + open buying.** Neutral monsters (side `"N"`, type `"monster"`, `ctx.neutralUnits`) are now a third faction worth **fighting over, not avoiding**: they're **passive until attacked** (walking next to one is safe), killing one pays the killer **+10 gold**, and an enraged monster **gives up if kited >4 cells from its spawn**. Paired economy change: **you can now buy on any turn** — per-round income still stops after turn 10, so **monster bounties become your only late-game gold**. **If your code avoided the centre, never bought after turn 10, or assumed proximity aggro → re-read [Neutral Monsters](#neutral-monsters) and [Money & Buying](#money--buying); jungling is now a real strategy.**
 - **2026-05-30 — Turn order overhaul.** A coin flip now picks a permanent **first mover** (acts first every round) vs **second mover** (acts second on the already-updated board, and starts with **+10 gold**). New `ctx.isFirstMover` field. Half-turns replaced simultaneous resolution, and mutual-elimination draws are gone (only one side attacks per half-turn). **If your code assumed simultaneous turns, symmetric starting money, or read `ctx` before this field existed → re-check [Turn Resolution](#turn-resolution) and [Money & Buying](#money--buying).**
 - **2026-05-30 — Practice bots redesigned.** `red-charger`, `blue-turtle`, and `green-tactician` are now three genuinely distinct doctrines (combined-arms blitz / defensive wall / threat-priority sniper) and each plays `ctx.isFirstMover` differently. If you tuned a strategy against their old archer-mirror behavior, re-read [Bot Personalities](#bot-personalities).
 
@@ -75,9 +75,9 @@ export function decideTurn(ctx) {
   // ctx.enemyUnits — enemy alive units (array, fully visible; if you move SECOND
   //                  this already reflects the enemy's move/attacks THIS round)
   // ctx.neutralUnits — neutral monsters (side "N"): a third faction in the middle
-  //                  columns. Killing them does NOT win the match, but they block
-  //                  cells and, once attacked or stepped next to, hunt and maul
-  //                  whoever provoked them. Empty if the board has no monsters.
+  //                  columns. Passive until ATTACKED (proximity is safe); the
+  //                  killer earns +10 gold. Killing them never wins the match, but
+  //                  the bounty is your only income after turn 10. Empty if none.
   // ctx.myAP       — action points to operate units this half-turn (10)
   // ctx.myMoney    — money to buy new units this round (2nd mover's includes +10)
   // ctx.turn       — round number (1 to 100)
@@ -294,18 +294,19 @@ A **third faction** shares the board with you and the enemy. They appear in
 `type: "monster"`. `ctx.neutralUnits` is empty if a match has none.
 
 - **Spawn**: 8–12 monsters, placed once at match start in the middle columns (x 4–11).
-- **Stats**: hp **300**, atk **10**, attack range **1**, move **2**. Tanky and hits hard — much beefier than any buyable unit.
-- **Passive by default**: an un-provoked monster just wanders one random cell per round and blocks whatever cell it stands on.
-- **Provoking one is sticky**: a monster enrages the instant you **attack it** *or* **move a unit onto a cell adjacent to it** (Chebyshev distance 1). It then locks onto that unit and **chases + mauls it every round until that unit dies**, after which it goes back to passive wandering. You can't "untag" it by running — only by killing it or letting it kill your unit.
-- **When they act**: all monsters move and attack **at the end of the round**, after both sides' half-turns. Expect chip damage to land on whatever unit is tagged, on top of enemy damage.
-- **They are not a win condition**: killing monsters does **nothing** for victory (it's purely enemy elimination / strength). They don't count as your losses or the enemy's either.
+- **Stats**: hp **200**, atk **10**, attack range **1**, move **2**. Tanky and hits hard — much beefier than any buyable unit, so killing one takes focused fire.
+- **Passive until you hit them**: a monster only wanders and blocks its cell — it does **nothing** until **attacked**. Walking right next to one is safe now; proximity no longer provokes. You choose when to start the fight.
+- **Bounty**: landing the killing blow on a monster pays the killer **+10 gold** (`MONSTER_BOUNTY`). Since income stops after the buy window (see [Money & Buying](#money--buying)), **monster bounties are your only mid/late-game gold** — clearing the neutral band is how you keep buying reinforcements.
+- **Aggro + leash**: once attacked, a monster locks onto that attacker and **chases + mauls it every round**, but **gives up** if the chase pulls it more than **4 cells from its spawn** — so it can't be kited back to your base, and "poke then retreat" cleanly drops aggro. It also drops aggro when the target dies, then goes back to wandering.
+- **When they act**: all monsters move and attack **at the end of the round**, after both sides' half-turns.
+- **Not a win condition**: killing monsters never wins (victory is purely enemy elimination / strength) and they don't count as anyone's losses. The reward is the gold, not the kill.
 
-Practical implications: don't path blindly through x 4–11 — stepping next to a monster wakes it. A 300-hp monster is rarely worth killing for its own sake (it costs you AP and attacks while you whittle it down), but you can **bait the enemy into the monster band**, or use a tagged monster as a slow, free source of pressure on an enemy unit. If `ctx.neutralUnits` is empty, ignore all of this.
+Practical implications: the neutral band is now a **resource to contest, not a wall to avoid**. You can safely move through x 4–11 as long as you don't attack — so push for position freely. After turn 10, whoever clears monsters keeps reinforcing while a passive opponent runs dry, so **jungling is a real economic strategy** (and a reason to fight for the centre). Watch the timing: monsters retaliate at end of round, so commit enough damage to make the trade worth the gold. If `ctx.neutralUnits` is empty, ignore all of this.
 
 ### Money & Buying
 - **You start with no units.** Build your army by buying with money.
-- Money: you start with **10**, and each round in the buy window you gain **10** (flat). Unspent money carries over. Total over the 10-round window = **110** (first mover) / **120** (second mover, who starts with the +10 coin-flip compensation).
-- **Buy window is turns 1–10.** After turn 10 there is no income and you can't buy — you fight with what you have.
+- Money: you start with **10**, and gain **10** per round during the **income window (turns 1–10)** (flat). Unspent money carries over. Window income = **110** (first mover) / **120** (second mover, who starts with the +10 coin-flip compensation).
+- **You can buy on ANY turn** — purchasing is no longer limited to the income window. What changes after turn 10 is only the income: the per-round **+10 stops**, so your only new gold then is **monster bounties** (+10 per kill — see [Neutral Monsters](#neutral-monsters)). Bank gold early and you can still reinforce late; clear monsters and you can keep buying indefinitely.
 - Buy action: `{ action: "buy", unitType: "knight" }` — no unitId needed. Costs that unit's money cost (see table).
 - New units spawn in random empty cells in your home columns (0–3 for side A, 12–15 for side B), after the death phase.
 - A bought unit is alive immediately but doesn't act until the next turn.

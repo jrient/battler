@@ -126,7 +126,9 @@ describe("coin flip + alternating turns", () => {
       }
       return [];
     };
-    runMatch({ decideA: probe, decideB: probe, seed: 12345, matchId: "test_react" });
+    // Disable monsters: they can wander onto the archer's path and block its
+    // move, which is unrelated to the turn-order reactivity under test here.
+    runMatch({ decideA: probe, decideB: probe, seed: 12345, matchId: "test_react", monsters: false });
     expect(comparisons).toBeGreaterThan(0);
     expect(mismatch).toBe(false);
   });

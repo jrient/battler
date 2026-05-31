@@ -36,10 +36,13 @@ export interface Unit {
   maxHp: number;
   cooldowns: Record<string, number>;
   defending: boolean;
-  // Neutral monsters only: the id of the unit this monster is hunting (the first
-  // unit to attack it or step adjacent). Cleared when that target dies, after
-  // which the monster goes back to passive random wandering.
+  // Neutral monsters only: the id of the unit this monster is hunting (whoever
+  // attacked it). Cleared when that target dies or pulls the monster more than
+  // MONSTER_LEASH cells from its spawn, after which it goes back to wandering.
   aggroTargetId?: string | null;
+  // Neutral monsters only: spawn cell, used as the leash anchor so a provoked
+  // monster can't be kited indefinitely toward a player's home.
+  anchor?: Position;
 }
 
 export interface PublicUnit {

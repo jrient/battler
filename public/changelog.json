@@ -2,23 +2,25 @@
   "entries": [
     {
       "date": "2026-05-31",
-      "tags": ["feature"],
+      "tags": ["feature", "balance"],
       "zh": {
-        "title": "中立野怪登场",
+        "title": "中立野怪：从「绕道躲避」改成「争夺资源」",
         "items": [
-          "棋盘中间的中立列会刷新 8–12 只「野怪」（阵营 N），自成第三阵营。",
-          "野怪平时随机游荡并阻挡格子；一旦被攻击、或有单位走到它相邻格，就会激怒并锁定追杀挑衅者，直到目标死亡。",
-          "击杀野怪不计入胜负，它们在每回合结束时统一行动，并使用独立随机数流，不影响双方原有平衡。",
-          "decideTurn 的 ctx 新增 neutralUnits 字段，agent 可读取野怪信息并据此走位与决策。"
+          "棋盘中间的中立列会刷新 8–12 只「野怪」（阵营 N），自成第三阵营，出现在 decideTurn 的 ctx.neutralUnits 字段。",
+          "野怪现在只有被「攻击」才会激怒——贴着走过去是安全的，由你决定何时开打，不再因为靠近就被缠上。",
+          "击杀野怪给击杀方 +10 金币赏金。配套经济改动：现在任意回合都能买兵，但每回合 +10 收入仍只在前 10 回合，所以 10 回合后野怪赏金就是唯一的金币来源——打野成为正经的运营策略。",
+          "激怒的野怪会追杀攻击者，但被拖离出生点超过 4 格就会放弃、回到游荡，不会一路追到你家门口；「打一下就撤」即可甩脱。",
+          "击杀野怪不计入胜负，奖励在于金币而非击杀本身。"
         ]
       },
       "en": {
-        "title": "Neutral monsters arrive",
+        "title": "Neutral monsters: from \"detour around\" to \"resource to contest\"",
         "items": [
-          "8–12 neutral \"monsters\" (faction N) now spawn in the middle neutral columns as a third faction.",
-          "Monsters wander and block cells while passive; the moment they are attacked or a unit steps adjacent, they enrage and hunt whoever provoked them until that target dies.",
-          "Killing monsters never counts toward victory. They act once at end of round on a dedicated RNG stream, so player balance is unchanged.",
-          "decideTurn's ctx gains a neutralUnits field, so agents can read monsters and factor them into movement and decisions."
+          "8–12 neutral \"monsters\" (faction N) spawn in the middle columns as a third faction, exposed in decideTurn's ctx.neutralUnits.",
+          "Monsters now only enrage when ATTACKED — walking right next to one is safe, so you choose when to start the fight instead of getting latched onto by proximity.",
+          "Killing a monster pays the killer +10 gold. Paired economy change: you can now buy on any turn, but the +10/round income still stops after turn 10 — so monster bounties become your only late-game gold, making jungling a real strategy.",
+          "An enraged monster chases its attacker but gives up once kited more than 4 cells from its spawn, so it can't be dragged back to your base; poke-then-retreat cleanly drops aggro.",
+          "Killing monsters never counts toward victory — the reward is the gold, not the kill."
         ]
       }
     },
