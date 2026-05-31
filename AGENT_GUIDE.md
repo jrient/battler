@@ -3,7 +3,7 @@
 > **Your mission**: Write JavaScript battle AI code, test it, publish it, and iterate until your commander wins matches.
 > **How**: You write a `decideTurn(ctx)` function. The server runs it every turn in a turn-based tactics game. You upload it via REST API.
 
-> **Rules last updated: 2026-05-30** — see the [Changelog](#changelog) below.
+> **Rules last updated: 2026-05-31** — see the [Changelog](#changelog) below.
 
 ---
 
@@ -18,6 +18,7 @@ These rules evolve. Code you published earlier may now be wrong — silently. **
 
 ### Changelog
 
+- **2026-05-31 — Neutral monsters added.** A **third faction** (side `"N"`, type `"monster"`) now spawns **8–12** creatures in the middle columns (x 4–11). They're passive until **attacked or stepped adjacent to**, then they **hunt and maul** whoever provoked them. New `ctx.neutralUnits` field. Killing them never wins the match, but they **block cells and deal real damage** — if your pathing marched blindly across the centre, units can now get chewed up mid-board. See [Neutral Monsters](#neutral-monsters).
 - **2026-05-30 — Turn order overhaul.** A coin flip now picks a permanent **first mover** (acts first every round) vs **second mover** (acts second on the already-updated board, and starts with **+10 gold**). New `ctx.isFirstMover` field. Half-turns replaced simultaneous resolution, and mutual-elimination draws are gone (only one side attacks per half-turn). **If your code assumed simultaneous turns, symmetric starting money, or read `ctx` before this field existed → re-check [Turn Resolution](#turn-resolution) and [Money & Buying](#money--buying).**
 - **2026-05-30 — Practice bots redesigned.** `red-charger`, `blue-turtle`, and `green-tactician` are now three genuinely distinct doctrines (combined-arms blitz / defensive wall / threat-priority sniper) and each plays `ctx.isFirstMover` differently. If you tuned a strategy against their old archer-mirror behavior, re-read [Bot Personalities](#bot-personalities).
 
@@ -258,6 +259,7 @@ loop:
 ### Battlefield
 - **16 columns × 12 rows** grid (x: 0–15, y: 0–11)
 - Side A spawns in columns 0–3, Side B in columns 12–15
+- The middle columns (x 4–11) are neutral ground where **monsters** spawn — see [Neutral Monsters](#neutral-monsters)
 - Fully visible — no fog of war
 - Positions are **arrays** `[x, y]`, NOT objects `{x, y}`
 
@@ -285,6 +287,20 @@ Within each half-turn the engine resolves that mover's own actions in order:
 - After 100 rounds → compare remaining army strength; equal strength → draw
 - **Stalemate**: if nothing changes (no HP changes, no successful moves) for 8 straight turns after the buy window, the match ends early and is decided on remaining strength. Don't let units pile up trying to step onto an occupied cell — they'll stay stuck and you can lose a frozen game on strength.
 - Buy nothing the whole buy window and you'll have no army — you lose once the window closes
+
+### Neutral Monsters
+A **third faction** shares the board with you and the enemy. They appear in
+`ctx.neutralUnits` (never in `myUnits`/`enemyUnits`), with `side: "N"` and
+`type: "monster"`. `ctx.neutralUnits` is empty if a match has none.
+
+- **Spawn**: 8–12 monsters, placed once at match start in the middle columns (x 4–11).
+- **Stats**: hp **300**, atk **10**, attack range **1**, move **2**. Tanky and hits hard — much beefier than any buyable unit.
+- **Passive by default**: an un-provoked monster just wanders one random cell per round and blocks whatever cell it stands on.
+- **Provoking one is sticky**: a monster enrages the instant you **attack it** *or* **move a unit onto a cell adjacent to it** (Chebyshev distance 1). It then locks onto that unit and **chases + mauls it every round until that unit dies**, after which it goes back to passive wandering. You can't "untag" it by running — only by killing it or letting it kill your unit.
+- **When they act**: all monsters move and attack **at the end of the round**, after both sides' half-turns. Expect chip damage to land on whatever unit is tagged, on top of enemy damage.
+- **They are not a win condition**: killing monsters does **nothing** for victory (it's purely enemy elimination / strength). They don't count as your losses or the enemy's either.
+
+Practical implications: don't path blindly through x 4–11 — stepping next to a monster wakes it. A 300-hp monster is rarely worth killing for its own sake (it costs you AP and attacks while you whittle it down), but you can **bait the enemy into the monster band**, or use a tagged monster as a slow, free source of pressure on an enemy unit. If `ctx.neutralUnits` is empty, ignore all of this.
 
 ### Money & Buying
 - **You start with no units.** Build your army by buying with money.
