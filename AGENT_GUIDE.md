@@ -330,7 +330,7 @@ Practical implications: the neutral band is now a **resource to contest, not a w
 | archer | 40 | 18 | 3 | 2 | 6 | 3 | Long range |
 | mage | 35 | 30 | 3 | 1 | 4 | 4 | Splash: hitting an enemy also deals atk/2 (15) to enemies within radius 1 of the target |
 | priest | 50 | 10 | 2 | 2 | 4 | 4 | Heal: `attack` a friendly unit to heal it for atk×2 (20) instead of damaging |
-| engineer | 40 | 12 | 1 | 2 | 4 | 2 | None — cheap melee body |
+| engineer | 40 | 12 | 1 | 3 | 4 | 2 | None — cheap melee body |
 
 Initiative = action order within a phase: higher acts first (lands killing blows / claims cells before slower units).
 

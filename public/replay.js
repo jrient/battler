@@ -12,7 +12,7 @@ const UNIT_STATS = {
   archer: { hp: 40, atk: 18, range: 3, move: 2, special: "远程" },
   mage: { hp: 35, atk: 30, range: 3, move: 1, special: "溅射" },
   priest: { hp: 50, atk: 10, range: 2, move: 2, special: "治疗" },
-  engineer: { hp: 40, atk: 12, range: 1, move: 2, special: "—" },
+  engineer: { hp: 40, atk: 12, range: 1, move: 3, special: "—" },
 };
 
 // Unit sprites are rendered by the shared module (assets/sprites.js).

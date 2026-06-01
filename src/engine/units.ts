@@ -84,7 +84,7 @@ export const UNITS: Record<UnitType, UnitDef> = {
     hp: 40,
     atk: 12,
     range: 1,
-    moveRange: 2,
+    moveRange: 3,
     actionAP: 1,
     cost: 2,
     initiative: 4,
