@@ -80,6 +80,64 @@ describe("stalemate detection does not affect decisive matches", () => {
   });
 });
 
+// A monster grazed by a mage's splash or a spear's pierce must wake up and hunt,
+// not soak the collateral for free — otherwise AoE armies farm the neutral band
+// with zero risk. This army buys mages + spears and converges on the center
+// (cols 4-11), where monsters spawn, so its splash/pierce keeps grazing them.
+const centerFighter: DecideFn = (ctx: DecideCtx): Action[] => {
+  const COST: Record<string, number> = { mage: 4, spear: 3 };
+  const RANGE: Record<string, number> = { knight: 1, spear: 2, archer: 3, mage: 3, priest: 2, engineer: 1 };
+  const acts: Action[] = [];
+  if (ctx.turn <= BUY_TURNS) {
+    let money = ctx.myMoney;
+    let i = ctx.myUnits.length;
+    while (money >= 3) {
+      const t = i % 2 ? "spear" : "mage";
+      if (COST[t]! > money) break;
+      acts.push({ action: "buy", unitType: t });
+      money -= COST[t]!;
+      i++;
+    }
+  }
+  for (const u of ctx.myUnits) {
+    let tgt: { id: string } | null = null;
+    let bd = Infinity;
+    for (const e of ctx.enemyUnits) {
+      const d = Math.abs(u.pos[0] - e.pos[0]) + Math.abs(u.pos[1] - e.pos[1]);
+      if (d <= (RANGE[u.type] ?? 1) && d < bd) { bd = d; tgt = e; }
+    }
+    if (tgt) { acts.push({ unitId: u.id, action: "attack", targetUnitId: tgt.id }); continue; }
+    const dx = Math.sign(8 - u.pos[0]), dy = Math.sign(6 - u.pos[1]);
+    if (dx === 0 && dy === 0) continue;
+    const target: [number, number] = Math.abs(8 - u.pos[0]) >= Math.abs(6 - u.pos[1])
+      ? [u.pos[0] + dx, u.pos[1]] : [u.pos[0], u.pos[1] + dy];
+    acts.push({ unitId: u.id, action: "move", target });
+  }
+  return acts;
+};
+
+describe("monsters enrage on collateral damage, not just direct hits", () => {
+  it("a monster grazed by splash/pierce wakes up (or dies) instead of soaking it for free", () => {
+    let totalCollateral = 0;
+    let soakedForFree = 0;
+    for (let seed = 1; seed <= 50; seed++) {
+      const out = runMatch({ decideA: centerFighter, decideB: centerFighter, seed, matchId: `mon_${seed}` });
+      const collateral = new Set<string>(); // monsters hit by splash/pierce
+      const wokeOrDied = new Set<string>(); // monsters that enraged or were slain
+      for (const e of out.events) {
+        if (e.includes("splash hit")) for (const m of e.matchAll(/(monster_\d+)\(/g)) collateral.add(m[1]!);
+        const pm = e.match(/pierce hit (monster_\d+)/); if (pm) collateral.add(pm[1]!);
+        const mm = e.match(/\[mon\] (monster_\d+) (?:enraged|slain)/); if (mm) wokeOrDied.add(mm[1]!);
+      }
+      totalCollateral += collateral.size;
+      for (const id of collateral) if (!wokeOrDied.has(id)) soakedForFree++;
+    }
+    // The scenario must actually exercise collateral hits, and none may be free.
+    expect(totalCollateral).toBeGreaterThan(0);
+    expect(soakedForFree).toBe(0);
+  });
+});
+
 describe("coin flip + alternating turns", () => {
   it("flips for turn order and compensates the second mover with bonus gold", () => {
     const seen: Record<string, { isFirst: boolean; money: number }> = {};

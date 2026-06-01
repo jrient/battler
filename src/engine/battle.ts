@@ -468,12 +468,19 @@ function phaseAttack(
 ): { damage: number; bounty: number } {
   let totalDamage = 0;
   let bounty = 0;
-  // A monster dies only from player attack damage (monsters never kill monsters),
-  // so detect the killing blow right where each hit lands.
-  const payIfKilledMonster = (u: Unit, hpBefore: number, killer: Unit) => {
-    if (u.side === "N" && hpBefore > 0 && u.hp <= 0) {
+  // A monster reacts to ANY damage source — a direct hit, a spear's pierce, or a
+  // mage's splash. If the blow kills it, pay the bounty; if it survives and isn't
+  // already hunting someone, it enrages and hunts whoever dealt the damage. Enraging
+  // on collateral too is what stops AoE from farming monsters risk-free: splash a
+  // fight that grazes a monster and it wakes up and mauls you back.
+  const onMonsterDamaged = (u: Unit, hpBefore: number, attacker: Unit) => {
+    if (u.side !== "N" || hpBefore <= 0) return;
+    if (u.hp <= 0) {
       bounty += MONSTER_BOUNTY;
-      events.push(`[mon] ${u.id} slain by ${killer.id} — bounty +${MONSTER_BOUNTY}g`);
+      events.push(`[mon] ${u.id} slain by ${attacker.id} — bounty +${MONSTER_BOUNTY}g`);
+    } else if (!hasLiveTarget(u, allUnits)) {
+      u.aggroTargetId = attacker.id;
+      events.push(`[mon] ${u.id} enraged by ${attacker.id} (attacked)`);
     }
   };
   const attackActions = actions
@@ -516,13 +523,8 @@ function phaseAttack(
     totalDamage += dealt;
     events.push(`[atk] ${attacker.id} attacked ${target.id} for ${dealt} dmg (hp ${target.hp}/${target.maxHp})`);
 
-    // Attacking a neutral monster enrages it: the first attacker (while it has no
-    // living target) becomes the one it hunts.
-    if (target.side === "N" && !hasLiveTarget(target, allUnits)) {
-      target.aggroTargetId = attacker.id;
-      events.push(`[mon] ${target.id} enraged by ${attacker.id} (attacked)`);
-    }
-    payIfKilledMonster(target, targetHpBefore, attacker);
+    // A neutral monster taking the hit enrages (or, if killed, pays out).
+    onMonsterDamaged(target, targetHpBefore, attacker);
 
     if (defOf(attacker).special === "pierce_one") {
       const dx = Math.sign(target.pos[0] - attacker.pos[0]);
@@ -535,7 +537,7 @@ function phaseAttack(
           const pierceDmg = applyDamage(pierceTarget, Math.floor(atk / 2));
           totalDamage += pierceDmg;
           events.push(`[atk] ${attacker.id} pierce hit ${pierceTarget.id} for ${pierceDmg} dmg`);
-          payIfKilledMonster(pierceTarget, pierceBefore, attacker);
+          onMonsterDamaged(pierceTarget, pierceBefore, attacker);
         }
       }
     }
@@ -553,7 +555,7 @@ function phaseAttack(
           const dealtSplash = applyDamage(u, splashDmg);
           totalDamage += dealtSplash;
           hits.push(`${u.id}(${dealtSplash})`);
-          payIfKilledMonster(u, splashBefore, attacker);
+          onMonsterDamaged(u, splashBefore, attacker);
         }
       }
       if (hits.length) {

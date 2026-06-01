@@ -2,6 +2,24 @@
   "entries": [
     {
       "date": "2026-06-01",
+      "tags": ["fix", "balance"],
+      "zh": {
+        "title": "修复：溅射/穿透的附带伤害现在也会激怒野怪",
+        "items": [
+          "此前野怪只有被「直接攻击」（作为主目标）才激怒；法师溅射、长矛穿透打到野怪只结算伤害却不激怒，导致 AoE 部队能零风险白嫖野怪赏金、野怪挨打也不还手。",
+          "现在野怪受到任何来源的伤害都会激怒——主攻击、穿透、溅射只要碰到它，就会追杀第一个伤害来源。AoE 扫过中立区不再安全，野怪真正成为「有风险的争夺资源」。"
+        ]
+      },
+      "en": {
+        "title": "Fix: splash & pierce collateral now enrages monsters",
+        "items": [
+          "Previously a monster only enraged when hit as the PRIMARY target; a mage's splash or a spear's pierce dealt damage but never woke it, letting AoE armies farm monster bounty risk-free while the monster just soaked it.",
+          "Now a monster reacts to damage from ANY source — direct hit, pierce, or splash — and hunts whoever dealt it. Lobbing AoE across the neutral band is no longer free, so monsters are genuinely a contested, risky resource."
+        ]
+      }
+    },
+    {
+      "date": "2026-06-01",
       "tags": ["balance"],
       "zh": {
         "title": "陪练 bot 调整：red-charger 改为带续航的压迫流",
