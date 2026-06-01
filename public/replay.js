@@ -7,11 +7,11 @@ const STEP = CELL_SIZE + CELL_GAP;
 const UNIT_ICONS = { knight: "🗡️", spear: "🔱", archer: "🏹", mage: "🔮", priest: "✚", engineer: "🔧" };
 const UNIT_NAMES = { knight: "重甲骑士", spear: "长矛兵", archer: "弓手", mage: "法师", priest: "牧师", engineer: "工兵" };
 const UNIT_STATS = {
-  knight: { hp: 100, atk: 20, range: 1, move: 2, special: "受伤减半" },
+  knight: { hp: 100, atk: 20, range: 1, move: 3, special: "受伤减半" },
   spear: { hp: 60, atk: 25, range: 2, move: 3, special: "穿透" },
   archer: { hp: 40, atk: 18, range: 3, move: 2, special: "远程" },
   mage: { hp: 35, atk: 30, range: 3, move: 1, special: "溅射" },
-  priest: { hp: 50, atk: 10, range: 2, move: 1, special: "治疗" },
+  priest: { hp: 50, atk: 10, range: 2, move: 2, special: "治疗" },
   engineer: { hp: 40, atk: 12, range: 1, move: 2, special: "—" },
 };
 

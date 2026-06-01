@@ -12,7 +12,7 @@
 
 const COST   = { knight:5, spear:3, archer:3, mage:4, priest:4, engineer:2 };
 const RANGE  = { knight:1, spear:2, archer:3, mage:3, priest:2, engineer:1 };
-const MOVE   = { knight:2, spear:3, archer:2, mage:1, priest:1, engineer:2 };
+const MOVE   = { knight:3, spear:3, archer:2, mage:1, priest:2, engineer:2 };
 const ATK    = { knight:20, spear:25, archer:18, mage:30, priest:10, engineer:12 };
 const THREAT = { mage:10, archer:9, spear:7, priest:6, engineer:4, knight:2 };
 
