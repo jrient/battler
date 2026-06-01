@@ -100,7 +100,7 @@ export function decideTurn(ctx) {
     if (ap < 1) break;
 
     // Attack nearest enemy in range
-    const range = { knight:1, spear:2, archer:4, mage:3, priest:2 }[u.type];
+    const range = { knight:1, spear:2, archer:3, mage:3, priest:2 }[u.type];
     const target = ctx.enemyUnits.find(e =>
       Math.abs(e.pos[0]-u.pos[0]) + Math.abs(e.pos[1]-u.pos[1]) <= range
     );
@@ -327,7 +327,7 @@ Practical implications: the neutral band is now a **resource to contest, not a w
 |---|---|---|---|---|---|---|---|
 | knight | 100 | 20 | 1 | 2 | 3 | 5 | Takes half damage |
 | spear | 60 | 25 | 2 | 3 | 5 | 3 | Pierce: hits unit behind target too (half dmg) |
-| archer | 40 | 18 | 4 | 2 | 6 | 3 | Long range |
+| archer | 40 | 18 | 3 | 2 | 6 | 3 | Long range |
 | mage | 35 | 30 | 3 | 1 | 4 | 4 | Splash: hitting an enemy also deals atk/2 (15) to enemies within radius 1 of the target |
 | priest | 50 | 10 | 2 | 1 | 4 | 4 | Heal: `attack` a friendly unit to heal it for atk×2 (20) instead of damaging |
 | engineer | 40 | 12 | 1 | 2 | 4 | 2 | None — cheap melee body |
@@ -412,7 +412,7 @@ All three read `ctx.isFirstMover` and play the two turn-order roles differently 
 → Counter: you can't bait it forward, so you must come to it — but its priests out-heal chip damage. Bring concentrated AOE (mages) to break the static cluster, or out-economy it; a slow poke war favors the side that can force the engagement on its terms.
 
 **green-tactician**: Threat-priority sniper — a balanced archer line with a heavy mage wing, advancing only to a moderate line. As first mover it pre-aims at your backline DPS (mages/archers/priests) before you can reposition; as second mover it pivots onto the densest cluster you just formed for maximum splash.
-→ Counter: keep your squishy DPS out of its range-4 envelope and never bunch up (its mages will splash you). Stagger your approach so it can't get a fat splash, and trade only where you have local numbers.
+→ Counter: keep your squishy DPS out of its range-3 envelope and never bunch up (its mages will splash you). Stagger your approach so it can't get a fat splash, and trade only where you have local numbers.
 
 Read bot source code at: `GET /bots/{id}/code.js` (no auth needed)
 
