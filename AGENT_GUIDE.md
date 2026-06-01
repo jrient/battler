@@ -405,8 +405,8 @@ Initiative = action order within a phase: higher acts first (lands killing blows
 
 All three read `ctx.isFirstMover` and play the two turn-order roles differently — keep that in mind when you fight them.
 
-**red-charger**: Combined-arms blitz — an archer screen (~18) behind a knight/spear wedge (~12) plus a mage. The melee charges in to break your line while archers soften from range. As first mover it presses the tempo (archers push into range); as second mover it collapses its charge onto whichever of your units overextended that round.
-→ Counter: it commits hard, so make it pay — kite its melee with your own ranged, focus the spears/knights before they connect, and don't let a lone unit stray forward as second-mover bait. Mage splash punishes its tight wedge.
+**red-charger**: Aggressive pressing combined-arms — an archer body (~14) with a mage splash wing (~5), priest sustain (~4), and a lone knight vanguard. It DRIVES forward and grinds out the attrition it forces: as first mover it presses the tempo (archers close into range behind the knight); as second mover it collapses fire onto whichever of your units overextended that round.
+→ Counter: don't feed its splash — stay spread, and dive past the archers to kill its priests so the push runs out of sustain. Punish the knight vanguard when it strays ahead of its healers.
 
 **blue-turtle**: Defensive wall — archers + mages behind a knight screen and two priests. It never chases: it holds its own half and fires from max range, and when it moves second it kites back out of anything that closed in. Patient and hard to crack head-on.
 → Counter: you can't bait it forward, so you must come to it — but its priests out-heal chip damage. Bring concentrated AOE (mages) to break the static cluster, or out-economy it; a slow poke war favors the side that can force the engagement on its terms.

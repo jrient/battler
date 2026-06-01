@@ -4,6 +4,24 @@
       "date": "2026-06-01",
       "tags": ["balance"],
       "zh": {
+        "title": "陪练 bot 调整：red-charger 改为带续航的压迫流",
+        "items": [
+          "根据玩家对战记录，red-charger（原近战突脸流）胜率过低、被弓手堡垒放风筝。重做为「弓手主体 + 法师溅射 + 牧师续航 + 单骑士先锋」的压迫流：它仍向前压、惩罚冒进，但靠溅射和治疗打赢自己制造的消耗战。",
+          "对强力玩家的胜率从约 20% 提升到约 45%，定位为「有竞争力但偏下风」的练习对手——能击败弱队，但打不过顶尖高手，方便玩家上分。green-tactician、blue-turtle 本轮不变。"
+        ]
+      },
+      "en": {
+        "title": "Practice bot tuning: red-charger reworked into a sustain-pressing doctrine",
+        "items": [
+          "Player battle records showed red-charger (a melee-blitz) winning far too little — it got kited by archer fortresses. Reworked into a pressing doctrine: an archer body + a mage splash wing + priest sustain + a lone knight vanguard. It still drives forward and punishes overextension, but now wins the attrition it forces via splash and healing.",
+          "Its win rate vs strong players rose from ~20% to ~45% — positioned as a 'competitive but slight underdog' sparring partner that beats weaker armies yet loses to top play, so players can still climb. green-tactician and blue-turtle are unchanged this pass."
+        ]
+      }
+    },
+    {
+      "date": "2026-06-01",
+      "tags": ["balance"],
+      "zh": {
         "title": "兵种平衡：弓兵射程下调 + 三个慢速单位提机动",
         "items": [
           "弓兵射程 4→3：长射程加稳定输出让它过早压制接近的单位，下调后弓兵必须更靠前才能输出，也更容易被近战/法师反制。",

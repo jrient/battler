@@ -1,12 +1,14 @@
-// red-charger — aggressive combined-arms blitz. Unlike a pure kiter, it buys a
-// melee spearhead (knights + spears) behind a screen of archers and DRIVES
-// forward to break the enemy line at close range. It exploits ctx.isFirstMover:
-// as the FIRST mover it presses the tempo (archers advance into range, melee
-// charge the center); as the SECOND mover it reacts — collapsing its charge onto
-// whichever enemy unit overextended toward it this round.
+// red-charger — aggressive pressing combined-arms. Unlike green-tactician (which
+// holds the range edge) or blue-turtle (which sits in its half), red DRIVES
+// forward: a knight vanguard leads, an archer body softens, a mage wing adds
+// splash, and priests keep the push alive by healing the attrition it forces. It
+// exploits ctx.isFirstMover: as the FIRST mover it presses the tempo (archers
+// close into range behind the knight); as the SECOND mover it reacts — collapsing
+// fire onto whichever enemy unit overextended toward it this round.
 //
 // Doctrine (16x12 / AP-10 / buy-economy board):
-//  - Archers (range 3) screen and soften; the melee wedge then closes to finish.
+//  - Mage splash + priest sustain let it win the attrition it forces by pressing;
+//    archers (range 3) provide the bulk of the damage, a lone knight tanks front.
 //  - Attacks are free and one-per-unit, so we converge the whole army on ONE
 //    target (local superiority) and finish low-HP / high-threat enemies first.
 
@@ -16,8 +18,9 @@ const MOVE   = { knight:3, spear:3, archer:2, mage:1, priest:2, engineer:3 };
 const ATK    = { knight:20, spear:25, archer:18, mage:30, priest:10, engineer:12 };
 const THREAT = { mage:10, archer:9, spear:7, priest:6, engineer:4, knight:2 };
 
-// Combined-arms army: an archer screen plus a real melee wedge to break the line.
-const TARGET = { archer: 18, spear: 9, knight: 3, mage: 1 };
+// Pressing combined-arms: an archer body for damage, a mage wing for splash,
+// priests for sustain, and a lone knight vanguard to tank the front.
+const TARGET = { archer: 14, mage: 5, priest: 4, knight: 1 };
 
 function mhd(a,b){ return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
 function cheb(a,b){ return Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])); }

@@ -7,7 +7,7 @@
 // onto the densest enemy cluster the enemy just formed, maximizing splash.
 //
 // Doctrine (16x12 / AP-10 / buy-economy board):
-//  - Range-4 archers + range-3 mages converge for local superiority and finish
+//  - Range-3 archers + range-3 mages converge for local superiority and finish
 //    low-HP / high-threat enemies first so enemy DPS collapses fastest.
 
 const COST   = { knight:5, spear:3, archer:3, mage:4, priest:4, engineer:2 };
