@@ -6,7 +6,7 @@
 // whichever enemy unit overextended toward it this round.
 //
 // Doctrine (16x12 / AP-10 / buy-economy board):
-//  - Archers (range 4) screen and soften; the melee wedge then closes to finish.
+//  - Archers (range 3) screen and soften; the melee wedge then closes to finish.
 //  - Attacks are free and one-per-unit, so we converge the whole army on ONE
 //    target (local superiority) and finish low-HP / high-threat enemies first.
 

@@ -1,6 +1,26 @@
 {
   "entries": [
     {
+      "date": "2026-06-01",
+      "tags": ["balance"],
+      "zh": {
+        "title": "兵种平衡：弓兵射程下调 + 三个慢速单位提机动",
+        "items": [
+          "弓兵射程 4→3：长射程加稳定输出让它过早压制接近的单位，下调后弓兵必须更靠前才能输出，也更容易被近战/法师反制。",
+          "经过统一平衡测算，骑士、牧师、工兵都因为机动性偏低而「参与不进战斗」，三者一并提速：骑士移动 2→3（能追上风筝单位、扑杀后排），牧师移动 1→2（跟得上军队去奶人），工兵移动 2→3（变成廉价快速的骚扰/卡位单位）。",
+          "法师保持不变：测算显示它的「超模」是抱团团战的假象——散开站位可破溅射，再用快速单位扑杀脆皮慢速的法师即可反制，多买法师在高水平对局里反而吃亏。"
+        ]
+      },
+      "en": {
+        "title": "Unit balance: archer range cut + mobility for three slow units",
+        "items": [
+          "Archer range 4→3: long range plus steady damage let archers suppress approaching units too early. With range 3 they must commit further forward and are easier for melee/mages to contest.",
+          "A unit-balance pass found knight, priest, and engineer all too slow to take part in fights, so all three got faster: knight move 2→3 (can catch kiters and dive the backline), priest move 1→2 (keeps pace with the army to heal), engineer move 2→3 (a cheap, fast harasser/blocker).",
+          "Mage is unchanged: its apparent dominance was an artifact of clumped team-fights — dispersing denies its splash, and fast units dive the fragile, slow mage to counter it, so stacking mages actually loses in skilled play."
+        ]
+      }
+    },
+    {
       "date": "2026-05-31",
       "tags": ["feature", "balance"],
       "zh": {

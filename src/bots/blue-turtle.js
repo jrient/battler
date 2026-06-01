@@ -6,7 +6,7 @@
 // FIRST mover (blind to the enemy's reply) it simply holds the line and stays safe.
 //
 // Doctrine (16x12 / AP-10 / buy-economy board):
-//  - Archers (range 4) out-reach everything; never advancing means we always fire
+//  - Archers (range 3) out-reach everything; never advancing means we always fire
 //    from max range while the enemy eats AP closing the gap.
 //  - Knights screen the firing line; priests keep the wall standing.
 
