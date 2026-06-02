@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { describe, it, expect } from "vitest";
 import { loadAgent, wrapAgentAsDecideFn, CompileError } from "./runner.js";
 import type { DecideCtx } from "../engine/types.js";

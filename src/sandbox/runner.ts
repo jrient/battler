@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import * as vm from "node:vm";
 import type { Action, DecideCtx, DecideFn, Side } from "../engine/types.js";
 

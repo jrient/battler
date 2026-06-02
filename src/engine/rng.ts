@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 export type Rng = () => number;
 
 /**

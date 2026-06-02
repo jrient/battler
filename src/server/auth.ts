@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Context, MiddlewareHandler } from "hono";
 import {

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import type { ArmyEntry, MatchOutput, Side, TurnSnapshot } from "./types.js";
 
 export interface CommanderMeta {

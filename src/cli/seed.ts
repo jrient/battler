@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { nanoid } from "nanoid";
 import { createCommander, listCommanders } from "../server/store.js";
 

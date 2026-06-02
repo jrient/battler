@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import type { Context } from "hono";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";

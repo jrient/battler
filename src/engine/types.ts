@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 export type UnitType = "knight" | "spear" | "archer" | "mage" | "priest" | "engineer";
 export type Position = [number, number];
 export type Side = "A" | "B";

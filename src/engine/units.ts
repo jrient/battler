@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import type { UnitDef, UnitType } from "./types.js";
 
 export const BOARD_WIDTH = 16;

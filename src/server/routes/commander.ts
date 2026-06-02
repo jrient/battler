@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { createHash } from "node:crypto";
 import { bodyLimit } from "hono/body-limit";
 import { nanoid } from "nanoid";

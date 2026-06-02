@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import type { RankInfo } from "../server/store.js";
 
 export type Outcome = "win" | "loss" | "draw";

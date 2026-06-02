@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { Hono } from "hono";
 import { compress } from "hono/compress";
 import type { Vars } from "./routes/shared.js";

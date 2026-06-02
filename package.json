@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "description": "Agent-first turn-based tactical battle platform",
+  "author": "AgentClash",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "tsx watch src/server/index.ts",
     "start": "node --experimental-vm-modules dist/server/index.js",

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { loadAgent, CompileError } from "../sandbox/runner.js";
 
 const cases: Array<{ name: string; code: string; expect: "compile-error" | "timeout-empty" | "ok-empty" | "ok" }> = [

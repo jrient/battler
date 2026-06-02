@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { describe, it, expect } from "vitest";
 import { computeNewRank, botScore, BOT_SCORES } from "./elo.js";
 import type { RankInfo } from "../server/store.js";

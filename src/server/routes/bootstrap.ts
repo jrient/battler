@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { createHash } from "node:crypto";
 import { getCommanderByBootstrapToken } from "../store.js";
 import { BASE_URL, DEMO_CODE, type AppType } from "./shared.js";

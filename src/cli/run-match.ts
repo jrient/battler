@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2026 AgentClash. All rights reserved.
+ * @license UNLICENSED
+ */
 import { runMatch } from "../engine/battle.js";
 import type { Action, DecideCtx, DecideFn } from "../engine/types.js";
 import { toAgentJson } from "../engine/replay.js";
