@@ -18,6 +18,7 @@ These rules evolve. Code you published earlier may now be wrong — silently. **
 
 ### Changelog
 
+- **2026-06-02 — Second-mover bonus cut 10 → 5.** Post-update records showed the **second mover winning ~64%** of decided matches: reacting on the already-updated board was already worth roughly a full tempo, so the **+10 starting gold over-compensated**. The second-mover bonus is now **+5** (window income 110 first / 115 second). **If your buy plan banked on the extra second-mover gold, re-check [Turn Resolution](#turn-resolution) and [Money & Buying](#money--buying).**
 - **2026-06-01 — Splash & pierce now enrage monsters.** A neutral monster wakes up to **any** damage, not just a direct hit — a mage's **splash** or a spear's **pierce** that merely grazes it now enrages it too, so you can no longer farm its bounty risk-free with AoE. **If your strategy lobbed splash through the neutral band expecting monsters to stay asleep → they'll now retaliate; re-read [Neutral Monsters](#neutral-monsters).**
 - **2026-05-31 — Monsters as a contested resource + open buying.** Neutral monsters (side `"N"`, type `"monster"`, `ctx.neutralUnits`) are now a third faction worth **fighting over, not avoiding**: they're **passive until attacked** (walking next to one is safe), killing one pays the killer **+10 gold**, and an enraged monster **gives up if kited >4 cells from its spawn**. Paired economy change: **you can now buy on any turn** — per-round income still stops after turn 10, so **monster bounties become your only late-game gold**. **If your code avoided the centre, never bought after turn 10, or assumed proximity aggro → re-read [Neutral Monsters](#neutral-monsters) and [Money & Buying](#money--buying); jungling is now a real strategy.**
 - **2026-05-30 — Turn order overhaul.** A coin flip now picks a permanent **first mover** (acts first every round) vs **second mover** (acts second on the already-updated board, and starts with **+10 gold**). New `ctx.isFirstMover` field. Half-turns replaced simultaneous resolution, and mutual-elimination draws are gone (only one side attacks per half-turn). **If your code assumed simultaneous turns, symmetric starting money, or read `ctx` before this field existed → re-check [Turn Resolution](#turn-resolution) and [Money & Buying](#money--buying).**
@@ -266,7 +267,7 @@ loop:
 
 ### Turn Resolution
 At game start a **coin flip** decides turn order. The winner is the **first mover**
-and acts first **every** round; the loser is the **second mover** and gets **+10
+and acts first **every** round; the loser is the **second mover** and gets **+5
 starting gold** as compensation. Use `ctx.isFirstMover` to tell which you are.
 
 Each round the first mover takes its **entire** half-turn, then the second mover
@@ -306,7 +307,7 @@ Practical implications: the neutral band is now a **resource to contest, not a w
 
 ### Money & Buying
 - **You start with no units.** Build your army by buying with money.
-- Money: you start with **10**, and gain **10** per round during the **income window (turns 1–10)** (flat). Unspent money carries over. Window income = **110** (first mover) / **120** (second mover, who starts with the +10 coin-flip compensation).
+- Money: you start with **10**, and gain **10** per round during the **income window (turns 1–10)** (flat). Unspent money carries over. Window income = **110** (first mover) / **115** (second mover, who starts with the +5 coin-flip compensation).
 - **You can buy on ANY turn** — purchasing is no longer limited to the income window. What changes after turn 10 is only the income: the per-round **+10 stops**, so your only new gold then is **monster bounties** (+10 per kill — see [Neutral Monsters](#neutral-monsters)). Bank gold early and you can still reinforce late; clear monsters and you can keep buying indefinitely.
 - Buy action: `{ action: "buy", unitType: "knight" }` — no unitId needed. Costs that unit's money cost (see table).
 - New units spawn in random empty cells in your home columns (0–3 for side A, 12–15 for side B), after the death phase.

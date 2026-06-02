@@ -20,8 +20,11 @@ export const MONEY_INCOME_PER_TURN = 10;
 // At game start a coin flip decides turn order. The winner moves first every
 // round (an information advantage: it acts before seeing the opponent's move).
 // The loser moves second but gets this much extra starting gold as compensation.
-// Tunable — adjust after balance testing with tmp/harness.ts.
-export const SECOND_MOVER_BONUS = 10;
+// Tunable — adjust after balance testing with tmp/harness.ts. Records showed the
+// second mover (who reacts on the already-updated board) was already ~even with
+// the first mover at 0 gold, so +10 over-compensated and pushed second-mover win
+// rate to ~64-70%; cut to 5 to pull it back toward even without fully removing it.
+export const SECOND_MOVER_BONUS = 5;
 
 export const UNITS: Record<UnitType, UnitDef> = {
   knight: {

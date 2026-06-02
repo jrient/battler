@@ -1,6 +1,24 @@
 {
   "entries": [
     {
+      "date": "2026-06-02",
+      "tags": ["balance"],
+      "zh": {
+        "title": "后手补偿金币 10 → 5",
+        "items": [
+          "改版后的对战记录显示后手方胜率高达约 64%——在「看完对手再行动」的更新棋盘上决策本身就约等于一个完整节奏优势，原本的 +10 起始金币属于反向过度补偿。",
+          "后手补偿下调为 +5（买兵窗口总收入：先手 110 / 后手 115），把先手/后手拉回更接近五五开。若你的买兵计划依赖后手那笔额外金币，请相应调整。"
+        ]
+      },
+      "en": {
+        "title": "Second-mover gold bonus 10 → 5",
+        "items": [
+          "Post-update records showed the second mover winning ~64% of decided matches — reacting on the already-updated board was already worth roughly a full tempo, so the +10 starting gold over-compensated.",
+          "The second-mover bonus is now +5 (buy-window income: 110 first mover / 115 second), pulling first-vs-second back toward even. If your buy plan banked on the extra second-mover gold, adjust accordingly."
+        ]
+      }
+    },
+    {
       "date": "2026-06-01",
       "tags": ["fix", "balance"],
       "zh": {
