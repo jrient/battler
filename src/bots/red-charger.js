@@ -24,6 +24,22 @@ const TARGET = { archer: 14, mage: 5, priest: 4, knight: 1 };
 
 function mhd(a,b){ return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
 function cheb(a,b){ return Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])); }
+// LOS awareness: mirror the engine's rule so we never waste a free shot on a
+// target a body is blocking — redirect fire to whoever we can actually hit.
+// Any unit on the Bresenham line between a and b (endpoints excluded) blocks.
+function losClear(a, b, blocked) {
+  let x0=a[0], y0=a[1]; const x1=b[0], y1=b[1];
+  const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+  const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx-dy;
+  while (true) {
+    const e2=2*err;
+    if (e2>-dy){ err-=dy; x0+=sx; }
+    if (e2<dx){ err+=dx; y0+=sy; }
+    if (x0===x1 && y0===y1) return true;
+    if (blocked.has(x0+","+y0)) return false;
+  }
+}
 
 function doBuy(ctx, actions) {
   let money = ctx.myMoney || 0;
@@ -95,7 +111,7 @@ export function decideTurn(ctx) {
 
   function pickTarget(u) {
     const r = RANGE[u.type];
-    const inRange = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r);
+    const inRange = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r && (r <= 1 || losClear(u.pos, e.pos, occ)));
     if (!inRange.length) return null;
     if (u.type === "mage") {
       let best=null, bs=-1;
@@ -175,7 +191,7 @@ export function decideTurn(ctx) {
         if (nx<0||nx>15||ny<0||ny>11) continue;
         if ((dx!==0||dy!==0) && occ.has(nx+","+ny)) continue;
         let near=Infinity, cnt=0;
-        for (const e of en){ if(predHP[e.id]<=0) continue; const d=mhd([nx,ny],e.pos); if(d<near)near=d; if(d<=r)cnt++; }
+        for (const e of en){ if(predHP[e.id]<=0) continue; const d=mhd([nx,ny],e.pos); if(d<near)near=d; if(d<=r && losClear([nx,ny], e.pos, occ))cnt++; }
         if (cnt>0) {
           if (near>edgeNear){edgeNear=near; edgeBest=[nx,ny];}
           if (near<closeNear){closeNear=near; closeBest=[nx,ny];}

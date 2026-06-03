@@ -42,6 +42,22 @@ const RANKOFF = { knight:0, archer:1, mage:1, spear:1, priest:2, engineer:0 };
 
 function mhd(a,b){ return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]); }
 function cheb(a,b){ return Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])); }
+// LOS awareness: mirror the engine's rule so we never waste a free shot on a
+// target a body is blocking — redirect fire to whoever we can actually hit.
+// Any unit on the Bresenham line between a and b (endpoints excluded) blocks.
+function losClear(a, b, blocked) {
+  let x0=a[0], y0=a[1]; const x1=b[0], y1=b[1];
+  const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+  const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx-dy;
+  while (true) {
+    const e2=2*err;
+    if (e2>-dy){ err-=dy; x0+=sx; }
+    if (e2<dx){ err+=dx; y0+=sy; }
+    if (x0===x1 && y0===y1) return true;
+    if (blocked.has(x0+","+y0)) return false;
+  }
+}
 
 function doBuy(ctx, actions) {
   let money = ctx.myMoney || 0;
@@ -90,7 +106,7 @@ export function decideTurn(ctx) {
 
   function pickTarget(u) {
     const r = RANGE[u.type];
-    const inRange = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r);
+    const inRange = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r && (r <= 1 || losClear(u.pos, e.pos, occ)));
     if (!inRange.length) return null;
     if (u.type === "mage") {
       let best=null, bs=-1;
@@ -167,7 +183,7 @@ export function decideTurn(ctx) {
   for (const u of my) {
     if (acted.has(u.id)) continue;
     const r = RANGE[u.type];
-    const cand = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r);
+    const cand = en.filter(e => predHP[e.id] > 0 && mhd(u.pos, e.pos) <= r && (r <= 1 || losClear(u.pos, e.pos, occ)));
     if (!cand.length) continue;
     let best=null;
     if (u.type === "mage") {
@@ -191,7 +207,28 @@ export function decideTurn(ctx) {
     acted.add(u.id);
   }
 
-  // ===== PHASE 3: formation advance, AP spent on cohesion first =====
+  // ===== PHASE 3: formation advance + LOS-aware firing lanes =====
+  // A ranged unit with no clear shot from where it stands slides LATERALLY to a
+  // cell that actually has a firing lane (range + line of sight to a live enemy),
+  // staying behind the wall line - this stops our OWN knights from masking our
+  // archers/mages. Knights and priests just advance to their rank slot.
+  function bestLaneCell(u, tx, ty) {
+    const mv = MOVE[u.type], r = RANGE[u.type];
+    let best=null, bestShots=0, bestSlot=Infinity;
+    for (let dx=-mv; dx<=mv; dx++) for (let dy=-mv; dy<=mv; dy++) {
+      const dd=Math.abs(dx)+Math.abs(dy); if (dd>mv) continue;
+      const nx=u.pos[0]+dx, ny=u.pos[1]+dy;
+      if (nx<0||nx>15||ny<0||ny>11) continue;
+      if ((dx!==0||dy!==0) && occ.has(nx+","+ny)) continue;
+      if (dir>0 && nx > lineX) continue;
+      if (dir<0 && nx < lineX) continue;
+      let shots=0;
+      for (const e of en){ if (predHP[e.id]<=0) continue; if (mhd([nx,ny],e.pos)<=r && losClear([nx,ny], e.pos, occ)) shots++; }
+      const slotD = mhd([nx,ny],[tx,ty]);
+      if (shots>bestShots || (shots===bestShots && slotD<bestSlot)) { bestShots=shots; bestSlot=slotD; best=[nx,ny]; }
+    }
+    return bestShots>0 ? best : null;
+  }
   const ORDER = { knight:0, archer:1, mage:2, spear:1, priest:3, engineer:0 };
   const movers = my.filter(u=>!acted.has(u.id)).map(u=>{
     const off = RANKOFF[u.type] ?? 1;
@@ -201,8 +238,17 @@ export function decideTurn(ctx) {
   let ap = ctx.myAP;
   for (const m of movers) {
     if (ap < 1) break;
+    const u = m.u;
+    if (u.type === "archer" || u.type === "mage") {
+      const lane = bestLaneCell(u, m.tx, m.ty);
+      if (lane && (lane[0]!==u.pos[0] || lane[1]!==u.pos[1])) {
+        occ.delete(u.pos[0]+","+u.pos[1]); occ.add(lane[0]+","+lane[1]);
+        actions.push({unitId:u.id, action:"move", target:lane}); ap--;
+        continue;
+      }
+    }
     if (m.d === 0) continue;
-    if (advance(m.u, m.tx, m.ty)) ap--;
+    if (advance(u, m.tx, m.ty)) ap--;
   }
 
   return actions;
