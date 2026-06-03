@@ -35,6 +35,12 @@ export const BOTS: Record<string, BotMeta> = {
     style: "Threat-priority sniper: heavy mage wing for AOE, advances to a moderate line; pre-aims at enemy DPS as first mover, pivots onto the densest cluster as second mover",
     codePath: resolve(__dirname, "green-tactician.js"),
   },
+  "iron-tide": {
+    id: "iron-tide",
+    displayName: "Iron Tide",
+    style: "Combined-arms phalanx: a knight wall (damage halved) soaks the firing line while archers and mages fire range-3 over the top — mage splash cracks healer deathballs — and priests sustain the wall; the body advances as ONE cohesive block, only creeping forward when assembled, and focus-fires enemy priests first so its damage sticks",
+    codePath: resolve(__dirname, "iron-tide.js"),
+  },
 };
 
 const codeCache = new Map<string, string>();
