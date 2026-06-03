@@ -507,6 +507,17 @@ function phaseAttack(
       continue;
     }
 
+    // Line of sight: a ranged OFFENSIVE attack cannot pass through a body. Any
+    // living unit between attacker and target blocks the shot, so a front-line
+    // wall genuinely shields what is behind it (yours AND the enemy's front rank
+    // shields its own backline) - the core fix for stand-back-and-spray ranged
+    // dominance. Melee (range 1) and healing (friendly target) are exempt.
+    if (defOf(attacker).range > 1 && target.side !== attacker.side &&
+        lineBlocked(attacker.pos, target.pos, allUnits)) {
+      events.push(attacker.id + " attack failed: line of sight to " + target.id + " blocked");
+      continue;
+    }
+
     const atk = defOf(attacker).atk;
 
     // Priest passive: targeting a friendly unit heals it for atk*2 instead of
@@ -732,6 +743,23 @@ function manhattan(a: Position, b: Position): number {
 
 function chebyshev(a: Position, b: Position): number {
   return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
+}
+
+// Bresenham line from a to b. Any LIVING unit on an INTERMEDIATE cell (endpoints
+// excluded) blocks line of sight - a ranged attack cannot fire through a body.
+function lineBlocked(a: Position, b: Position, units: Unit[]): boolean {
+  let x0 = a[0], y0 = a[1];
+  const x1 = b[0], y1 = b[1];
+  const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  while (true) {
+    const e2 = 2 * err;
+    if (e2 > -dy) { err -= dy; x0 += sx; }
+    if (e2 < dx) { err += dx; y0 += sy; }
+    if (x0 === x1 && y0 === y1) return false;
+    if (units.some((u) => u.hp > 0 && u.pos[0] === x0 && u.pos[1] === y0)) return true;
+  }
 }
 
 function samePos(a: Position, b: Position): boolean {
