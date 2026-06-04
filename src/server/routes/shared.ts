@@ -28,7 +28,7 @@ export type AppType = Hono<{ Variables: Vars }>;
 export const BASE_URL = process.env.AC_BASE_URL ?? "http://localhost:8787";
 
 export const SIMULATE_COOLDOWN_MS = 2000;
-export const CHALLENGE_COOLDOWN_MS = 60_000;
+export const CHALLENGE_COOLDOWN_MS = 10_000;
 
 // Reject oversized request bodies before they are read into memory (DoS guard),
 // with a consistent JSON 413. zod still bounds individual fields afterward.
