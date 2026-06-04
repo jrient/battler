@@ -3,6 +3,7 @@
  * @license UNLICENSED
  */
 import type { ArmyEntry, MatchOutput, Side, TurnSnapshot } from "./types.js";
+import { computeDiagnosis, type Diagnosis } from "./diagnosis.js";
 
 export interface CommanderMeta {
   id: string;
@@ -21,6 +22,10 @@ export interface AgentJson {
   enemyArmy: ArmyEntry[];
   turnSnapshots: TurnSnapshot[];
   events: string[];
+  // Aggregated per-viewer scoreboard over the event log: attack accuracy, the
+  // reasons actions silently failed, damage by unit type. Lets an agent
+  // self-correct from totals instead of re-parsing the whole log.
+  diagnosis: Diagnosis;
   summary: {
     myUnitsLost: number;
     enemyUnitsLost: number;
@@ -63,6 +68,9 @@ export function toAgentJson(
     enemyArmy: meIsA ? match.armyB : match.armyA,
     turnSnapshots: match.turnSnapshots ?? [],
     events: rewriteEventsForViewer(match.events, viewerSide),
+    // Computed from the RAW events (ids still carry "_A"/"_B") + the viewer side,
+    // so buy-failure lines (bare side letter) attribute unambiguously.
+    diagnosis: computeDiagnosis(match.events, viewerSide),
     summary: {
       myUnitsLost: meIsA ? s.aUnitsLost : s.bUnitsLost,
       enemyUnitsLost: meIsA ? s.bUnitsLost : s.aUnitsLost,
