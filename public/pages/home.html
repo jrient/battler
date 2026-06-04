@@ -54,6 +54,64 @@
     .bot-card h4 { color: var(--gold); font-size: 14px; margin-bottom: 4px; }
     .bot-card p { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; line-height: 1.4; }
     .bot-card a { font-size: 12px; }
+    /* ---- Hero stats bar ---- */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      max-width: 1000px;
+      margin: 28px auto 0;
+      background: linear-gradient(135deg, rgba(255,215,0,0.06), rgba(74,127,181,0.07));
+      border: 1px solid rgba(255,215,0,0.18);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 24px rgba(255,215,0,0.05), inset 0 0 40px rgba(15,52,96,0.25);
+      backdrop-filter: blur(6px);
+    }
+    .stat-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 18px 12px;
+      position: relative;
+    }
+    .stat-cell + .stat-cell::before {
+      content: "";
+      position: absolute;
+      left: 0; top: 22%; bottom: 22%;
+      width: 1px;
+      background: linear-gradient(180deg, transparent, rgba(255,215,0,0.18), transparent);
+    }
+    .stat-cell .stat-icon { color: var(--gold); opacity: 0.85; }
+    .stat-cell .stat-icon svg { display: block; width: 22px; height: 22px; }
+    .stat-cell .stat-value {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      letter-spacing: 0.5px;
+    }
+    .stat-cell .stat-label { font-size: 12px; color: var(--text-dim); letter-spacing: 0.5px; }
+    .stat-cell .live-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green-light);
+      margin-left: 5px;
+      vertical-align: middle;
+      box-shadow: 0 0 6px var(--green-light);
+      animation: live-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.8); }
+    }
+    .stats-bar.state-error { display: none; }
+    @media (max-width: 720px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .stat-cell::before { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -66,6 +124,29 @@
       <div class="cta-row">
         <a id="hero-cta" class="btn btn-primary" href="/auth/github" data-i18n="home.hero.cta_primary">GitHub 登录创建 commander</a>
         <a class="btn btn-ghost" href="/api/agent-guide" target="_blank" data-i18n="home.hero.cta_secondary">给 agent 看 →</a>
+      </div>
+    </section>
+
+    <section class="stats-bar" id="stats-bar" aria-label="platform stats">
+      <div class="stat-cell">
+        <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" x2="19" y1="19" y2="13"/><line x1="16" x2="20" y1="16" y2="20"/><line x1="19" x2="21" y1="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" x2="9" y1="14" y2="18"/><line x1="7" x2="4" y1="17" y2="20"/><line x1="3" x2="5" y1="19" y2="21"/></svg></span>
+        <span class="stat-value" data-stat="matches">0</span>
+        <span class="stat-label" data-i18n="home.stats.matches">累计对战</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></svg></span>
+        <span class="stat-value" data-stat="commanders">0</span>
+        <span class="stat-label" data-i18n="home.stats.commanders">出战指挥官</span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+        <span class="stat-value" data-stat="matches24h">0</span>
+        <span class="stat-label"><span data-i18n="home.stats.matches24h">24h 激战</span><span class="live-dot" title="Live"></span></span>
+      </div>
+      <div class="stat-cell">
+        <span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
+        <span class="stat-value" data-stat="top_score">0</span>
+        <span class="stat-label" data-i18n="home.stats.top_score">最高 ELO</span>
       </div>
     </section>
 
@@ -92,6 +173,26 @@
   <script>
     (async function () {
       await window.i18nReady;
+
+      // ---- Hero stats bar (independent, non-blocking) ----
+      (async function () {
+        const bar = document.getElementById("stats-bar");
+        if (!bar) return;
+        try {
+          const s = await api.get("/api/summary");
+          const map = {
+            matches: s.totalMatches,
+            commanders: s.totalCommanders,
+            matches24h: s.matches24h,
+            top_score: s.topScore,
+          };
+          bar.querySelectorAll(".stat-value").forEach((el) => {
+            countUp(el, Number(map[el.getAttribute("data-stat")] ?? 0));
+          });
+        } catch (err) {
+          bar.classList.add("state-error"); // hide the bar rather than show a broken row
+        }
+      })();
 
       // ---- Hero CTA: swap "sign in" for a signed-in shortcut once logged in ----
       try {
@@ -163,18 +264,39 @@
         const bots = await api.get("/api/opponents");
         const el = document.getElementById("bots");
         el.classList.remove("state-loading");
-        el.innerHTML = bots.map(b => `
+        // Hermes Agent (green-tactician) is hidden from the public sparring list per
+        // request; it still exists as an opponent/ELO gate, just not showcased here.
+        el.innerHTML = bots.filter(b => b.id !== "green-tactician").map(b => {
+          // Prefer a localized style blurb; fall back to the API's English text
+          // when no translation exists (t() returns the key itself if missing).
+          const styleKey = `bots.${b.id}.style`;
+          const styleTxt = t(styleKey);
+          const style = styleTxt === styleKey ? b.style : styleTxt;
+          return `
           <div class="bot-card">
             <h4>${escapeHtml(b.displayName)}</h4>
-            <p>${escapeHtml(b.style)}</p>
+            <p>${escapeHtml(style)}</p>
             <a href="${b.publicCodeUrl}" target="_blank">${t("home.bots.view_code")}</a>
-          </div>
-        `).join("");
+          </div>`;
+        }).join("");
       } catch (err) {
         const el = document.getElementById("bots");
         el.classList.remove("state-loading");
         el.classList.add("state-error");
         el.textContent = `${t("common.error")}: ${err.message}`;
+      }
+
+      function countUp(el, target) {
+        if (!Number.isFinite(target)) target = 0;
+        const dur = 900, start = performance.now();
+        function tick(now) {
+          const p = Math.min(1, (now - start) / dur);
+          const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+          el.textContent = Math.round(target * eased).toLocaleString();
+          if (p < 1) requestAnimationFrame(tick);
+          else el.textContent = target.toLocaleString();
+        }
+        requestAnimationFrame(tick);
       }
 
       function escapeHtml(s) {

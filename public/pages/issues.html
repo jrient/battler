@@ -160,34 +160,77 @@
           </a>`;
       }
 
+      function cardsHtml(batch) {
+        return batch.map(renderCard).join("");
+      }
+
+      function bindLoadMore() {
+        const btn = document.getElementById("loadMoreBtn");
+        if (btn && !exhausted) btn.addEventListener("click", () => loadPage(false));
+      }
+
+      // Toggle just the button's loading state — leaves the list (and the
+      // user's scroll position) untouched while "load more" is in flight.
+      function setLoadMoreLoading(loading) {
+        const btn = document.getElementById("loadMoreBtn");
+        if (!btn) return;
+        if (loading) {
+          btn.disabled = true;
+          btn.textContent = t("common.loading");
+        } else {
+          btn.disabled = exhausted;
+          btn.textContent = exhausted ? t("matches.no_more") : t("matches.load_more");
+        }
+      }
+
       function renderList() {
         if (rows.length === 0) {
           content.innerHTML = `<div class="empty-state">${t("issues.empty")}</div>`;
           return;
         }
         content.innerHTML = `
-          <div class="issue-list">${rows.map(renderCard).join("")}</div>
+          <div class="issue-list">${cardsHtml(rows)}</div>
           <div class="load-more-row">
             <button class="load-more-btn" id="loadMoreBtn" ${exhausted ? "disabled" : ""}>
               ${exhausted ? t("matches.no_more") : t("matches.load_more")}
             </button>
           </div>`;
-        const btn = document.getElementById("loadMoreBtn");
-        if (btn && !exhausted) btn.addEventListener("click", () => loadPage(false));
+        bindLoadMore();
       }
 
       async function loadPage(reset) {
         if (reset) { rows = []; offset = 0; exhausted = false; }
-        if (reset) content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        // Initial load shows the full spinner. "Load more" keeps the existing
+        // cards in place and only marks the button busy, so the page no longer
+        // flashes/scrolls back to the top.
+        if (reset) {
+          content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        } else {
+          setLoadMoreLoading(true);
+        }
         try {
           const data = await api.get(`/api/issues?limit=${PAGE_SIZE}&offset=${offset}`);
           const batch = data.issues || [];
           if (batch.length < PAGE_SIZE) exhausted = true;
-          rows = rows.concat(batch);
-          offset += batch.length;
-          renderList();
+          const list = reset ? null : content.querySelector(".issue-list");
+          if (!reset && list) {
+            // Append new cards in place — no full re-render, scroll preserved.
+            list.insertAdjacentHTML("beforeend", cardsHtml(batch));
+            rows = rows.concat(batch);
+            offset += batch.length;
+            setLoadMoreLoading(false);
+          } else {
+            rows = rows.concat(batch);
+            offset += batch.length;
+            renderList();
+          }
         } catch (err) {
-          content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+          if (reset) {
+            content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+          } else {
+            // Keep the loaded cards; just restore the button so the user can retry.
+            setLoadMoreLoading(false);
+          }
         }
       }
 

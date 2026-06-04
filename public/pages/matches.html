@@ -210,7 +210,6 @@
           content.innerHTML = `<div class="empty-state">${t("common.empty")}</div>`;
           return;
         }
-        const rowRenderer = commanderMode ? renderCommanderRow : renderRow;
         const tableHtml = `
           <table class="matches-table">
             <thead>
@@ -221,7 +220,7 @@
                 <th>${t("matches.col.action")}</th>
               </tr>
             </thead>
-            <tbody>${rows.map(rowRenderer).join("")}</tbody>
+            <tbody>${rowsHtml(rows)}</tbody>
           </table>
           <div class="load-more-row">
             <button class="load-more-btn" id="loadMoreBtn" ${exhausted ? "disabled" : ""}>
@@ -229,14 +228,44 @@
             </button>
           </div>`;
         content.innerHTML = tableHtml;
+        bindLoadMore();
+      }
+
+      function rowsHtml(batch) {
+        const rowRenderer = commanderMode ? renderCommanderRow : renderRow;
+        return batch.map(rowRenderer).join("");
+      }
+
+      function bindLoadMore() {
         const btn = document.getElementById("loadMoreBtn");
         if (btn && !exhausted) btn.addEventListener("click", () => loadPage(false));
+      }
+
+      // Toggle just the button's loading state — leaves the table (and the
+      // user's scroll position) untouched while "load more" is in flight.
+      function setLoadMoreLoading(loading) {
+        const btn = document.getElementById("loadMoreBtn");
+        if (!btn) return;
+        if (loading) {
+          btn.disabled = true;
+          btn.textContent = t("common.loading");
+        } else {
+          btn.disabled = exhausted;
+          btn.textContent = exhausted ? t("matches.no_more") : t("matches.load_more");
+        }
       }
 
       async function loadPage(reset) {
         if (reset) { rows = []; offset = 0; exhausted = false; }
         if (!commanderMode && currentFilter === "mine" && !signedIn) { renderTable(); return; }
-        content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        // Initial load / filter switch shows the full spinner. "Load more"
+        // keeps the existing rows in place and only marks the button busy, so
+        // the page no longer flashes/scrolls back to the top.
+        if (reset) {
+          content.innerHTML = `<div class="loading-row"><span class="spinner"></span></div>`;
+        } else {
+          setLoadMoreLoading(true);
+        }
         const url = commanderMode
           ? `/api/commanders/${encodeURIComponent(commanderId)}/matches?limit=${PAGE_SIZE}&offset=${offset}`
           : currentFilter === "mine"
@@ -247,11 +276,25 @@
           // Commander endpoint returns a bare array; the others return { matches }.
           const batch = Array.isArray(data) ? data : (data.matches || []);
           if (batch.length < PAGE_SIZE) exhausted = true;
-          rows = rows.concat(batch);
-          offset += batch.length;
-          renderTable();
+          const tbody = reset ? null : content.querySelector(".matches-table tbody");
+          if (!reset && tbody) {
+            // Append new rows in place — no full re-render, scroll preserved.
+            tbody.insertAdjacentHTML("beforeend", rowsHtml(batch));
+            rows = rows.concat(batch);
+            offset += batch.length;
+            setLoadMoreLoading(false);
+          } else {
+            rows = rows.concat(batch);
+            offset += batch.length;
+            renderTable();
+          }
         } catch (err) {
-          content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+          if (reset) {
+            content.innerHTML = `<div class="empty-state" style="color:#f66">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+          } else {
+            // Keep the loaded rows; just restore the button so the user can retry.
+            setLoadMoreLoading(false);
+          }
         }
       }
 

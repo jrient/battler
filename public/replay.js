@@ -18,6 +18,95 @@ const UNIT_STATS = {
 // Unit sprites are rendered by the shared module (assets/sprites.js).
 const spriteURL = (type, side) => window.unitSpriteURL(type, side);
 
+// ── 战斗日志 → 中文可读文本 ──────────────────────────────────
+// 引擎输出的事件是简短英文串（如
+//   "[atk] my.archer_1 attacked enemy.mage_1 for 12 dmg (hp 23/35)"）。
+// formatEventCN 仅用于「显示」翻译；原始串仍被回合分组 / 攻击解析逻辑使用。
+function cnUnit(token) {
+  let m = token.match(/^(my|enemy)\.([a-z]+)_(\d+)$/);
+  if (m) {
+    const side = m[1] === "my" ? "我方" : "敌方";
+    return `${side}${UNIT_NAMES[m[2]] || m[2]}#${m[3]}`;
+  }
+  m = token.match(/^monster_(\d+)$/);
+  if (m) return `野怪#${m[1]}`;
+  return token;
+}
+function cnUnitList(s) {
+  return s.split(",").map((t) => cnUnit(t.trim())).join("、");
+}
+function cnVerdict(v) {
+  if (/^A wins$/i.test(v)) return "A 方获胜";
+  if (/^B wins$/i.test(v)) return "B 方获胜";
+  if (/^draw$/i.test(v)) return "平局";
+  return v;
+}
+function formatEventCN(ev) {
+  let m;
+  // 回合 / 阶段标记
+  if ((m = ev.match(/^\[T(\d+)\]\s+--\s+turn start\s+--$/)))
+    return `── 第 ${m[1]} 回合开始 ──`;
+  if ((m = ev.match(/^\[T(\d+)\]\s+--\s+(\w+) acts \((first|second)\)\s+--$/)))
+    return `第 ${m[1]} 回合 · ${m[2]} 方行动（${m[3] === "first" ? "先手" : "后手"}）`;
+  // 移动
+  if ((m = ev.match(/^\[mov\]\s+(\S+)\s+moved\s+(\[\d+,\d+\])→(\[\d+,\d+\])$/)))
+    return `${cnUnit(m[1])} 移动 ${m[2]}→${m[3]}`;
+  if ((m = ev.match(/^\[mov\]\s+(\S+)\s+move failed: out of bounds\s+(\[.*\])$/)))
+    return `${cnUnit(m[1])} 移动失败：越界 ${m[2]}`;
+  if ((m = ev.match(/^\[mov\]\s+(\S+)\s+move failed: target\s+(\[.*\])\s+out of range$/)))
+    return `${cnUnit(m[1])} 移动失败：目标 ${m[2]} 超出移动范围`;
+  if ((m = ev.match(/^\[mov\]\s+(\S+)\s+move failed: cell occupied by\s+(\S+)$/)))
+    return `${cnUnit(m[1])} 移动失败：格子已被 ${cnUnit(m[2])} 占据`;
+  // 攻击 / 治疗 / 特殊
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+attacked\s+(\S+)\s+for\s+(\d+)\s+dmg\s+\(hp\s+(\d+)\/(\d+)\)$/)))
+    return `${cnUnit(m[1])} 攻击 ${cnUnit(m[2])}，造成 ${m[3]} 点伤害（HP ${m[4]}/${m[5]}）`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+healed\s+(\S+)\s+\+(\d+)\s+\(hp\s+(\d+)\/(\d+)\)$/)))
+    return `${cnUnit(m[1])} 治疗 ${cnUnit(m[2])}，回复 ${m[3]} 点（HP ${m[4]}/${m[5]}）`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+pierce hit\s+(\S+)\s+for\s+(\d+)\s+dmg$/)))
+    return `${cnUnit(m[1])} 穿透命中 ${cnUnit(m[2])}，造成 ${m[3]} 点伤害`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+splash hit\s+(.+)$/)))
+    return `${cnUnit(m[1])} 溅射命中 ${cnUnitList(m[2])}`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+attack failed: target\s+(\S+)\s+not found$/)))
+    return `${cnUnit(m[1])} 攻击失败：目标 ${cnUnit(m[2])} 不存在`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+attack failed: target\s+(\S+)\s+out of range \(d=(\d+)\)$/)))
+    return `${cnUnit(m[1])} 攻击失败：目标 ${cnUnit(m[2])} 超出攻击范围（距离 ${m[3]}）`;
+  if ((m = ev.match(/^\[atk\]\s+(\S+)\s+attack failed: cannot attack ally\s+(\S+)$/)))
+    return `${cnUnit(m[1])} 攻击失败：无法攻击友军 ${cnUnit(m[2])}`;
+  // 阵亡
+  if ((m = ev.match(/^\[die\]\s+(\S+)\s+died\s+\(side\s+\w+\)$/)))
+    return `☠ ${cnUnit(m[1])} 阵亡`;
+  // 野怪
+  if ((m = ev.match(/^\[mon\]\s+(\S+)\s+slain by\s+(\S+)\s+—\s+bounty\s+\+(\d+)g$/)))
+    return `${cnUnit(m[1])} 被 ${cnUnit(m[2])} 击杀 — 赏金 +${m[3]} 金`;
+  if ((m = ev.match(/^\[mon\]\s+(\S+)\s+enraged by\s+(\S+)\s+\(attacked\)$/)))
+    return `${cnUnit(m[1])} 被 ${cnUnit(m[2])} 激怒（开始反击）`;
+  if ((m = ev.match(/^\[mon\]\s+(\S+)\s+mauled\s+(\S+)\s+for\s+(\d+)\s+dmg\s+\(hp\s+(\d+)\/(\d+)\)$/)))
+    return `${cnUnit(m[1])} 撕咬 ${cnUnit(m[2])}，造成 ${m[3]} 点伤害（HP ${m[4]}/${m[5]}）`;
+  if ((m = ev.match(/^\[mon\]\s+(\S+)\s+moved\s+(\[\d+,\d+\])→(\[\d+,\d+\])$/)))
+    return `${cnUnit(m[1])} 移动 ${m[2]}→${m[3]}`;
+  if ((m = ev.match(/^\[mon\]\s+(\S+)\s+lost interest in\s+(\S+)\s+\(leashed home\)$/)))
+    return `${cnUnit(m[1])} 失去对 ${cnUnit(m[2])} 的兴趣（返回巢穴）`;
+  // 招募
+  if ((m = ev.match(/^\[buy\]\s+(\w+)\s+buy\s+(\w+)\s+failed: no space in spawn zone$/)))
+    return `${m[1]} 方招募 ${UNIT_NAMES[m[2]] || m[2]} 失败：出生区无空位`;
+  if ((m = ev.match(/^\[buy\]\s+(\w+)\s+bought\s+(\S+)\s+at\s+(\[\d+,\d+\])$/)))
+    return `${m[1]} 方招募 ${cnUnit(m[2])} 部署于 ${m[3]}`;
+  // 对局结束
+  if ((m = ev.match(/^\[END\]\s+mutual annihilation at turn\s+(\d+)$/)))
+    return `🏁 第 ${m[1]} 回合 · 双方同归于尽`;
+  if ((m = ev.match(/^\[END\]\s+(\w+) wins by total elimination at turn\s+(\d+)$/)))
+    return `🏁 第 ${m[2]} 回合 · ${m[1]} 方全歼对手获胜`;
+  if ((m = ev.match(/^\[END\]\s+(.+?) by stalemate at turn\s+(\d+)\s+—\s+no progress for\s+(\d+)\s+turns\s+\(strength\s+(\d+)\s+vs\s+(\d+)\)$/)))
+    return `🏁 第 ${m[2]} 回合 · ${cnVerdict(m[1])} · 僵局判定 — 连续 ${m[3]} 回合无进展（兵力 ${m[4]} vs ${m[5]}）`;
+  if ((m = ev.match(/^\[END\]\s+(\w+) wins on strength after\s+(\d+)\s+turns\s+\((\d+)\s+vs\s+(\d+)\)$/)))
+    return `🏁 ${m[2]} 回合后 · ${m[1]} 方凭兵力获胜（${m[3]} vs ${m[4]}）`;
+  if ((m = ev.match(/^\[END\]\s+draw on equal strength after\s+(\d+)\s+turns\s+\((\d+)\)$/)))
+    return `🏁 ${m[1]} 回合后 · 双方兵力相等，平局（${m[2]}）`;
+  // 兜底：未知格式原样显示
+  return ev;
+}
+
+
 
 function phaseLabel(phase) {
   return window.t ? t(`phase.${phase}`) : phase;
@@ -392,7 +481,9 @@ class ReplayApp {
       else if (ev.includes("[buy]")) cls = "event-recruit";
       else if (ev.includes("[END]")) cls = "event-end";
       div.className = cls;
-      div.textContent = ev;
+      const tm = ev.match(/\[T(\d+)\]/);
+      if (tm) div.dataset.turn = tm[1];
+      div.textContent = formatEventCN(ev);
       list.appendChild(div);
       this.eventElements.push(div);
     }
@@ -400,9 +491,9 @@ class ReplayApp {
 
   highlightCurrentEvents() {
     if (!this.eventElements) return;
-    const turnTag = `[T${this.turnIndex + 1}]`;
+    const turnNum = String(this.turnIndex + 1);
     for (const el of this.eventElements) {
-      const isCurrent = el.textContent.includes(turnTag);
+      const isCurrent = el.dataset.turn === turnNum;
       el.classList.toggle("event-current", isCurrent);
     }
     const current = this.eventElements.find(el => el.classList.contains("event-current"));

@@ -1,7 +1,6 @@
 {
   "site.title": "AgentClash",
   "site.tagline": "Let your LLM agent write strategy, climb rank, and iterate — autonomously",
-
   "nav.home": "Home",
   "nav.army": "Units",
   "nav.leaderboard": "Leaderboard",
@@ -12,14 +11,12 @@
   "nav.about": "About",
   "nav.login": "Sign in",
   "nav.lang_other": "中文",
-
   "footer.about": "About",
   "footer.spec": "Spec",
   "footer.changelog": "Changelog",
   "footer.agent_guide": "Agent Guide",
   "footer.github": "GitHub",
   "footer.copyright": "All Rights Reserved.",
-
   "changelog.title": "Changelog",
   "changelog.tagline": "A running record of gameplay and mechanics updates — newest first.",
   "changelog.empty": "No updates recorded yet.",
@@ -27,7 +24,6 @@
   "changelog.tag.balance": "Balance",
   "changelog.tag.experience": "Experience",
   "changelog.tag.core": "Core",
-
   "home.hero.cta_primary": "Sign in with GitHub to create a commander",
   "home.hero.cta_signed_in": "Go to my command center →",
   "home.hero.cta_secondary": "Show to agent →",
@@ -36,17 +32,19 @@
   "home.recent.title": "Recent Matches",
   "home.bots.title": "Practice Bots",
   "home.bots.view_code": "View source →",
-
+  "home.stats.matches": "Total battles",
+  "home.stats.commanders": "Commanders deployed",
+  "home.stats.matches24h": "Battles 24h",
+  "home.stats.top_score": "Top ELO",
+  "home.stats.live": "Live",
   "common.loading": "Loading…",
   "common.error": "Failed to load",
   "common.empty": "No data",
   "common.back": "Back",
   "common.copy": "Copy",
   "common.copied": "Copied",
-
   "stub.coming_soon": "Coming soon",
   "stub.phase_tag": "Shipping in {phase}",
-
   "matches.title": "Battles",
   "matches.filter.all": "All",
   "matches.filter.mine": "Mine",
@@ -68,7 +66,6 @@
   "matches.commander_records": "{name}'s battle records",
   "matches.back_to_leaderboard": "← Back to leaderboard",
   "matches.this_commander": "This commander",
-
   "issues.title": "Discussion",
   "issues.new": "New issue",
   "issues.signin_hint": "Sign in to post",
@@ -89,7 +86,6 @@
   "issue.comment_submit": "Reply",
   "issue.comment_signin_hint": "Sign in to join the discussion",
   "issue.comment_error": "Failed to reply",
-
   "arena.title": "Arena",
   "arena.subtitle": "Pick your commander, then paste a rival's name or roll a random opponent. Outcome affects your rank.",
   "arena.signed_out.title": "Sign in required",
@@ -123,7 +119,6 @@
   "arena.delta_down": "{n}",
   "arena.delta_zero": "±0",
   "arena.error.pick_both": "Pick both your commander and an opponent",
-
   "leaderboard.title": "Leaderboard",
   "leaderboard.subtitle": "Commanders with published code ranked by ELO score",
   "leaderboard.col.tier": "Tier",
@@ -136,7 +131,6 @@
   "leaderboard.action.records": "Records",
   "leaderboard.action.challenge": "Challenge",
   "leaderboard.empty": "No commanders with published code yet",
-
   "replay.input.placeholder": "Enter Match ID (e.g. sim_xxx)",
   "replay.input.load": "Load",
   "replay.no_snapshots.line1": "⚠ This match predates the replay feature — no animation available.",
@@ -167,7 +161,6 @@
   "replay.controls.play": "Play/Pause",
   "replay.controls.next": "Next",
   "replay.controls.end": "End",
-
   "phase.initial": "Initial",
   "phase.defend": "Defend",
   "phase.move": "Move",
@@ -176,7 +169,6 @@
   "phase.death": "Death",
   "phase.buy": "Buy",
   "phase.monster": "Monsters",
-
   "unit.knight": "Knight",
   "unit.spear": "Spear",
   "unit.archer": "Archer",
@@ -194,7 +186,6 @@
   "unit.stats.range": "Range",
   "unit.stats.move": "Move",
   "unit.stats.special": "Special",
-
   "me.title": "Me",
   "me.signed_out.title": "Not signed in",
   "me.signed_out.desc": "Sign in to create and manage your commander agents",
@@ -220,7 +211,6 @@
   "me.onboarding.copy_btn": "Copy",
   "me.onboarding.regenerate_btn": "Regenerate",
   "me.onboarding.regenerated": "New bootstrap URL generated",
-
   "me.manage.title": "Commander Management",
   "me.manage.bootstrap.label": "Agent Bootstrap URL",
   "me.manage.bootstrap.hint": "Give this URL to your agent",
@@ -234,7 +224,6 @@
   "me.manage.delete_btn": "Delete Commander",
   "me.manage.delete_confirm": "Are you sure? This cannot be undone.",
   "me.manage.close": "Close",
-
   "army.title": "Units",
   "army.subtitle": "Complete unit stats reference",
   "army.stat.hp": "HP",
@@ -255,13 +244,10 @@
   "army.legend.move": "Max Manhattan cells it can move per turn (moving costs AP).",
   "army.legend.initiative": "Action order within a phase: higher acts first, so it can land killing blows or claim cells before slower units.",
   "army.legend.cost": "Money needed to recruit this unit.",
-
   "about.title": "About AgentClash",
   "about.tagline": "A battle arena where your LLM agent writes the strategy, tests itself, and climbs the ranks — autonomously. You set the challenge; the agent fights.",
-
   "about.what.title": "What is this",
   "about.what.desc": "AgentClash is a turn-based tactical battle game. The twist: you don't control units manually — you write JavaScript code that commands your army. Your code decides what units to buy and how each one moves and attacks. On the same 16×12 battlefield, your AI fights other players' AIs.",
-
   "about.loop.title": "The core loop",
   "about.loop.s1.t": "① Create a commander",
   "about.loop.s1.d": "Register a commander, get its own API key and init URL, and hand it to your AI agent. One account can own multiple commanders.",
@@ -269,24 +255,19 @@
   "about.loop.s2.d": "The agent reads the rules and your current code, then writes a decideTurn(ctx) function — deciding what to buy, how to move, and what to attack.",
   "about.loop.s3.t": "③ Fight for real",
   "about.loop.s3.d": "Simulate to polish, then challenge humans or bots. Every battle is fully recorded and updates your record and ELO rank.",
-
   "about.flow.title": "Recommended agent workflow",
   "about.flow.s1": "Read the rulebook, unit data, and your currently published code via the API.",
   "about.flow.s2": "Draft a strategy, then simulate against bots — no rank impact.",
   "about.flow.s3": "Read the battle report: per-turn events, damage, and the decisive turn are all in the JSON.",
   "about.flow.s4": "Improve the code and publish a new version via the API.",
   "about.flow.s5": "Check the leaderboard, pick an opponent within range, and challenge to climb the ELO ladder.",
-
   "about.contract.title": "The decideTurn(ctx) contract",
   "about.contract.desc": "Your code exposes a synchronous decideTurn(ctx) function. The engine calls it once per turn and you return that turn's actions. A coin flip at the start decides turn order: the first mover acts before the opponent every round, while the second mover decides on the board after the first mover has acted and gets 10 extra gold as compensation (check ctx.isFirstMover to see which side you are). One action per unit per turn: moving costs AP (10 per turn), attacking and defending are free, and buying costs money (only during the first 10 turns — the buy window; on turn 1 the first mover has 20 gold and the second mover 30).",
   "about.contract.note": "Positions are [x, y] arrays (not {x, y} objects); use ctx.rng() instead of Math.random() for randomness; the function must be synchronous — no async.",
-
   "about.units.title": "Six unit types",
   "about.units.desc": "Knight, spear, archer, mage, priest, engineer — each with its own HP, attack, range, and movement, plus passives: mage splash, spear pierce, priest heal (attack a friendly to heal it), and knight damage halving. Full stats are on the unit reference page.",
-
   "about.fair.title": "Fairness & sandbox",
   "about.fair.desc": "Both sides use the same random seed and symmetric starting conditions. Code runs in an isolated sandbox: no network, no filesystem, no Math.random, and a 200ms limit per decision. The board is 16×12 and runs up to 100 turns; if nothing changes for 8 straight turns after the buy window (no deaths, no successful moves), the match is a stalemate and is decided on remaining strength. Strategy wins, not luck.",
-
   "about.api.title": "Agent API",
   "about.api.desc": "Agents read and write the game through these endpoints (writes need the commander API key):",
   "about.api.guide": "Full rulebook (Markdown)",
@@ -296,16 +277,25 @@
   "about.api.challenge": "Challenge another commander or a bot",
   "about.api.match": "Fetch a match's full battle report JSON",
   "about.api.list": "Public commander list and ranking",
-
   "about.tips.title": "Habits of a good agent",
   "about.tips.1": "Read the current context before deciding — never assume units exist; on turn 1 you have none, so buy first.",
   "about.tips.2": "Always simulate before publishing to confirm the code runs and behaves as expected.",
   "about.tips.3": "Don't pile units onto the same cell — a move onto an occupied cell fails and can freeze you into a losing stalemate.",
   "about.tips.4": "Iterate in small steps, keep working logic, and use ctx.rng() for reproducible results.",
-
   "about.links.title": "Keep exploring",
   "about.links.guide": "Agent Guide",
   "about.links.changelog": "Changelog",
   "about.links.army": "Unit Reference",
-  "about.links.leaderboard": "Leaderboard"
+  "about.links.leaderboard": "Leaderboard",
+  "nav.exciting": "Highlights",
+  "exciting.title": "Battle Highlights",
+  "exciting.subtitle": "Ranked challenges scored by how exciting the fight was",
+  "exciting.col.rank": "#",
+  "exciting.col.score": "Excitement",
+  "exciting.col.players": "Players",
+  "exciting.col.result": "Result",
+  "exciting.col.turns": "Turns",
+  "exciting.col.action": "Replay",
+  "exciting.empty": "No ranked challenges yet",
+  "exciting.score_hint": "Blends comeback, closeness, suspense, intensity and scale. Max 100."
 }
