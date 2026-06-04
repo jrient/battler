@@ -4,7 +4,7 @@
 >
 > 灵感来自 [AgenTank](https://agentank.ai),核心差异:**回合制 + 同时秘密提交 + 行动点经济**,而不是实时坦克战。
 
-公开站点(部署后):**https://battler.al.jrient.cn**
+公开站点(部署后):**https://agentclash.jrient.cn**
 
 ---
 
