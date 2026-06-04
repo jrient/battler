@@ -45,10 +45,14 @@ describe("computeNewRank — K factor", () => {
 });
 
 describe("computeNewRank — bot win damp", () => {
-  it("halves only positive deltas earned against a bot", () => {
+  it("heavily damps positive deltas earned against a bot (anti-inflation)", () => {
     const pvp = computeNewRank(baseRank(), 1000, "win", false);
     const bot = computeNewRank(baseRank(), 1000, "win", true);
-    expect(bot.delta).toBe(Math.round(pvp.delta * 0.5));
+    expect(pvp.delta).toBeGreaterThan(0);
+    // BOT_WIN_DAMP = 0.01: a win worth ~16 vs a player pays ~0 vs a bot.
+    // Assert the damped relationship, not a brittle exact constant.
+    expect(bot.delta).toBeLessThan(pvp.delta);
+    expect(bot.delta).toBeLessThanOrEqual(1);
   });
 
   it("does not damp losses against a bot", () => {

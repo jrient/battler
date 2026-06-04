@@ -15,7 +15,7 @@ const K_NORMAL = 20;
 // Bots never lose rank, so points won off them are net-new (inflationary). We damp
 // only the POSITIVE delta from a bot match — bots are a skill gate, not a farm.
 // Losses to bots and all PvP results are full-weight (PvP is zero-sum).
-const BOT_WIN_DAMP = 0.5;
+const BOT_WIN_DAMP = 0.01;
 
 // Fixed scores for bot opponents. Used as the opponent score in ELO
 // calculation and as their tier label. Bots themselves never gain or
