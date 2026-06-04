@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { nanoid } from "nanoid";
 import type { AgentJson } from "../engine/replay.js";
+import { computeExcitement } from "../engine/excitement.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,6 +81,11 @@ export interface MatchIndex {
   totalTurns: number;
   aUnitsRemaining: number;
   bUnitsRemaining: number;
+  // 0..100 "how exciting was this fight" score, used to rank the exciting-
+  // battles board. Only challenge matches are scored (simulations stay 0).
+  // May be undefined on matches indexed before this field existed — treated as
+  // 0 until back-filled (see scripts/backfill-excitement.ts).
+  excitement?: number;
 }
 
 export interface IssueRecord {
@@ -245,6 +251,25 @@ function migrateInPlace(s: StoreShape): void {
   }
   if (migrated > 0) {
     console.log(`[store] migrated ${migrated} fat matches into ${MATCHES_DIR}`);
+  }
+
+  // Back-fill the excitement score for matches indexed before the field
+  // existed. Idempotent: only fills when missing, and load() flushes right
+  // after, so each challenge file is re-read at most once ever. Simulations are
+  // never scored, so they're filled to 0 without touching their files.
+  let scored = 0;
+  for (const [id, m] of Object.entries(s.matches)) {
+    if (m.excitement !== undefined) continue;
+    if (m.type !== "challenge") {
+      m.excitement = 0;
+      continue;
+    }
+    const rec = readMatchFile(id);
+    m.excitement = rec ? computeExcitement(rec.agentJsonForA).score : 0;
+    if (rec) scored++;
+  }
+  if (scored > 0) {
+    console.log(`[store] back-filled excitement for ${scored} challenge matches`);
   }
 }
 
@@ -544,6 +569,9 @@ function indexFromRecord(rec: MatchRecord): MatchIndex {
     totalTurns: rec.agentJsonForA.summary.totalTurns,
     aUnitsRemaining: rec.agentJsonForA.summary.myUnitsRemaining,
     bUnitsRemaining: rec.agentJsonForA.summary.enemyUnitsRemaining,
+    // Only ranked challenges feed the exciting-battles board; simulations are
+    // practice runs and stay unscored.
+    excitement: rec.type === "challenge" ? computeExcitement(rec.agentJsonForA).score : 0,
   };
 }
 
@@ -605,6 +633,60 @@ export function listMatches(limit = 50, offset = 0): { matches: MatchIndex[]; to
     .map((id) => state.matches[id])
     .filter((m): m is MatchIndex => !!m);
   return { matches, total: matchOrder.length };
+}
+
+export interface SummaryStats {
+  totalMatches: number;
+  totalCommanders: number;   // published only (code && codeVersion > 0)
+  totalUsers: number;
+  matches24h: number;
+  topScore: number;
+  hourly24h: number[];       // 24 buckets, oldest->newest, matches/hour over last 24h
+}
+
+// Cheap aggregate stats for the homepage hero bar. Walks the full match index
+// (a few hundred records) on each call; revisit with a maintained counter if
+// match volume ever grows large. Read-only — never mutates state.
+export function getSummaryStats(): SummaryStats {
+  ensureLoaded();
+  const now = Date.now();
+  const dayAgo = now - 24 * 60 * 60 * 1000;
+  const hourly = new Array(24).fill(0) as number[];
+  let matches24h = 0;
+  for (const id of matchOrder) {
+    const m = state.matches[id];
+    if (!m) continue;
+    const t = Date.parse(m.createdAt);
+    if (Number.isNaN(t) || t < dayAgo) continue;
+    matches24h++;
+    const bucket = Math.min(23, Math.max(0, Math.floor((t - dayAgo) / (60 * 60 * 1000))));
+    hourly[bucket]++;
+  }
+  const published = Object.values(state.commanders).filter((c) => c.code && c.codeVersion > 0);
+  const topScore = published.reduce((max, c) => Math.max(max, c.rank.score), 0);
+  return {
+    totalMatches: matchOrder.length,
+    totalCommanders: published.length,
+    totalUsers: Object.keys(state.users).length,
+    matches24h,
+    topScore,
+    hourly24h: hourly,
+  };
+}
+
+// Challenge matches ranked by excitement, highest first. Powers the
+// exciting-battles board. Match volume is small enough to rank on each request;
+// revisit with a maintained sorted index if challenge counts grow large.
+export function listExcitingMatches(limit = 50): { matches: MatchIndex[]; total: number } {
+  ensureLoaded();
+  const ranked = Object.values(state.matches)
+    .filter((m) => m.type === "challenge")
+    .sort((a, b) => {
+      const d = (b.excitement ?? 0) - (a.excitement ?? 0);
+      // Tie-break newest-first so equal-excitement fights have a stable order.
+      return d !== 0 ? d : (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0);
+    });
+  return { matches: ranked.slice(0, limit), total: ranked.length };
 }
 
 export function getMatchesByOwner(ownerId: string, limit = 50, offset = 0): MatchIndex[] {

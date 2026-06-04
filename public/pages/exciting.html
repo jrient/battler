@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentClash</title>
+  <link rel="stylesheet" href="/assets/shared.css?v=1">
+  <script src="/assets/i18n.js?v=1"></script>
+  <script src="/assets/api.js?v=1"></script>
+  <script src="/assets/nav.js?v=1"></script>
+  <style>
+    .ex-wrap { max-width: 980px; margin: 0 auto; padding: 24px 20px; }
+    .ex-head { margin-bottom: 16px; }
+    .ex-head h1 { font-size: 22px; color: var(--text); margin: 0 0 4px; }
+    .ex-head .subtitle { color: var(--text-dim); font-size: 13px; margin: 0; }
+
+    .ex-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .ex-table th { text-align: left; padding: 10px 14px; font-size: 12px; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+    .ex-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    .ex-table tr:last-child td { border-bottom: none; }
+    .ex-table tr:hover { background: rgba(255,255,255,0.02); }
+    .ex-table tr.top1 { background: rgba(218,165,32,0.06); }
+    .ex-table tr.top2 { background: rgba(180,180,180,0.04); }
+    .ex-table tr.top3 { background: rgba(180,120,50,0.04); }
+
+    .rank-num { font-size: 16px; font-weight: 800; color: var(--text-dim); width: 32px; text-align: center; }
+
+    /* Excitement score: number + a small strength bar, colored by tier. */
+    .score-box { display: flex; align-items: center; gap: 8px; min-width: 92px; }
+    .score-val { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+    .score-bar { flex: 1; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .score-bar > span { display: block; height: 100%; border-radius: 3px; }
+    .tier-legendary .score-val { color: #ffcd3c; }
+    .tier-legendary .score-bar > span { background: #ffcd3c; }
+    .tier-great .score-val { color: #ff8c42; }
+    .tier-great .score-bar > span { background: #ff8c42; }
+    .tier-good .score-val { color: var(--blue-light, #6cf); }
+    .tier-good .score-bar > span { background: var(--blue-light, #6cf); }
+    .tier-mild .score-val { color: var(--text-dim); }
+    .tier-mild .score-bar > span { background: var(--text-dim); }
+
+    .vs-cell { color: var(--text-dim); margin: 0 6px; font-size: 11px; }
+    .name-a { color: var(--blue-light); }
+    .name-b { color: var(--red-light); }
+    .first-chip { display: inline-block; padding: 0 5px; border-radius: 3px; font-size: 10px; font-weight: 700; background: rgba(218,165,32,0.16); color: var(--gold); margin: 0 4px; vertical-align: middle; white-space: nowrap; }
+    .result-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; min-width: 56px; text-align: center; }
+    .result-badge.win { background: rgba(100,170,255,0.15); color: var(--blue-light); }
+    .result-badge.loss { background: rgba(255,100,100,0.15); color: var(--red-light); }
+    .result-badge.draw { background: rgba(180,180,180,0.15); color: var(--text-dim); }
+    .turns-cell { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+    .replay-link { color: var(--gold); text-decoration: none; font-size: 12px; white-space: nowrap; }
+    .replay-link:hover { text-decoration: underline; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+    .error-state { text-align: center; padding: 60px 20px; color: #f66; }
+    .loading-row { text-align: center; padding: 40px 0; color: var(--text-dim); }
+    .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+      .ex-table th:nth-child(4), .ex-table td:nth-child(4),
+      .ex-table th:nth-child(5), .ex-table td:nth-child(5) { display: none; }
+      .ex-table th, .ex-table td { padding: 10px 8px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="nav-mount"></div>
+
+  <main class="ex-wrap">
+    <div class="ex-head">
+      <h1 data-i18n="exciting.title">精彩战局榜</h1>
+      <p class="subtitle" data-i18n="exciting.subtitle">排位挑战按战局精彩程度评分排名</p>
+    </div>
+
+    <div id="content">
+      <div class="loading-row"><span class="spinner"></span></div>
+    </div>
+  </main>
+
+  <div id="footer-mount"></div>
+
+  <script>
+    (async function () {
+      await window.i18nReady;
+
+      const lang = (window.i18n && window.i18n.lang) || "zh";
+      const content = document.getElementById("content");
+
+      function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      }
+
+      function scoreTier(s) {
+        return s >= 70 ? "legendary" : s >= 50 ? "great" : s >= 30 ? "good" : "mild";
+      }
+
+      // ⚡ chip marking the coin-flip winner who moved first. `side` is "A"/"B".
+      function firstMoverChip(firstSide, side) {
+        if (firstSide !== side) return "";
+        return `<span class="first-chip" title="${t("matches.first_mover_hint")}">${t("matches.first_mover")}</span>`;
+      }
+
+      function renderRow(m, i) {
+        const rankCls = i === 0 ? "top1" : i === 1 ? "top2" : i === 2 ? "top3" : "";
+        const rankLabel = i < 3 ? ["🥇", "🥈", "🥉"][i] : (i + 1);
+        const a = m.participantA.displayName || m.participantA.submittedBy || "—";
+        const b = m.participantB.displayName || m.participantB.submittedBy || "—";
+        const score = m.excitement ?? 0;
+        const tier = scoreTier(score);
+        const cls = m.resultA === "win" ? "win" : m.resultA === "loss" ? "loss" : "draw";
+        const resultLabel = t(`matches.result.${cls}`);
+        return `
+          <tr class="${rankCls}">
+            <td class="rank-num">${rankLabel}</td>
+            <td>
+              <div class="score-box tier-${tier}" title="${t("exciting.score_hint")}">
+                <span class="score-val">${score}</span>
+                <span class="score-bar"><span style="width:${Math.max(2, Math.min(100, score))}%"></span></span>
+              </div>
+            </td>
+            <td>
+              <span class="name-a">${firstMoverChip(m.firstSide, "A")}${escapeHtml(a)}</span>
+              <span class="vs-cell">VS</span>
+              <span class="name-b">${escapeHtml(b)}${firstMoverChip(m.firstSide, "B")}</span>
+            </td>
+            <td><span class="result-badge ${cls}">${resultLabel}</span></td>
+            <td class="turns-cell">${m.summary?.totalTurns ?? "—"}</td>
+            <td><a class="replay-link" href="/${lang}/replay/${m.matchId}">${t("matches.view_replay")}</a></td>
+          </tr>`;
+      }
+
+      async function load() {
+        try {
+          const data = await api.get("/api/matches/exciting?limit=50");
+          const matches = data.matches || [];
+          if (matches.length === 0) {
+            content.innerHTML = `<div class="empty-state">${t("exciting.empty")}</div>`;
+            return;
+          }
+          content.innerHTML = `
+            <table class="ex-table">
+              <thead>
+                <tr>
+                  <th>${t("exciting.col.rank")}</th>
+                  <th>${t("exciting.col.score")}</th>
+                  <th>${t("exciting.col.players")}</th>
+                  <th>${t("exciting.col.result")}</th>
+                  <th>${t("exciting.col.turns")}</th>
+                  <th>${t("exciting.col.action")}</th>
+                </tr>
+              </thead>
+              <tbody>${matches.map((m, i) => renderRow(m, i)).join("")}</tbody>
+            </table>`;
+        } catch (err) {
+          content.innerHTML = `<div class="error-state">${t("common.error")}: ${escapeHtml(err.message)}</div>`;
+        }
+      }
+
+      load();
+    })();
+  </script>
+</body>
+</html>

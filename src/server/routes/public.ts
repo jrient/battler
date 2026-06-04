@@ -14,7 +14,9 @@ import {
   getMatch,
   getMatchesByCommander,
   listMatches,
+  listExcitingMatches,
   listCommanders,
+  getSummaryStats,
 } from "../store.js";
 import { DEMO_CODE, jsonBodyLimit, resolveDisplayName, safeJson, type AppType } from "./shared.js";
 
@@ -66,6 +68,21 @@ export function registerPublic(app: AppType): void {
       })),
     ),
   );
+
+  // Aggregate homepage stats — powers the hero stats bar. Lightweight read,
+  // briefly cached so a burst of homepage loads doesn't re-scan every request.
+  app.get("/api/summary", (c) => {
+    const s = getSummaryStats();
+    c.header("Cache-Control", "public, max-age=30");
+    return c.json({
+      totalMatches: s.totalMatches,
+      totalCommanders: s.totalCommanders,
+      matches24h: s.matches24h,
+      topScore: s.topScore,
+      totalBots: listBots().length,
+      hourly24h: s.hourly24h,
+    });
+  });
 
   app.get("/bots/:id/code.js", (c) => {
     const id = c.req.param("id");
@@ -140,6 +157,27 @@ export function registerPublic(app: AppType): void {
         resultA: m.resultA,
         // Derive from seed so it's present even for matches indexed before the
         // firstSide field existed (the engine picks first-mover purely from seed).
+        firstSide: firstSideFromSeed(m.seed),
+        summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
+      })),
+    });
+  });
+
+  // Most exciting ranked battles, scored by the excitement engine and ranked
+  // high-to-low. Public read — registered before the auth middleware.
+  app.get("/api/matches/exciting", (c) => {
+    const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 50)));
+    const { matches, total } = listExcitingMatches(limit);
+    return c.json({
+      total,
+      limit,
+      matches: matches.map((m) => ({
+        matchId: m.matchId,
+        createdAt: m.createdAt,
+        excitement: m.excitement ?? 0,
+        participantA: { commanderId: m.participantA.commanderId, submittedBy: m.participantA.submittedBy, displayName: resolveDisplayName(m.participantA.commanderId, m.participantA.submittedBy) },
+        participantB: { commanderId: m.participantB.commanderId, submittedBy: m.participantB.submittedBy, displayName: resolveDisplayName(m.participantB.commanderId, m.participantB.submittedBy) },
+        resultA: m.resultA,
         firstSide: firstSideFromSeed(m.seed),
         summary: { totalTurns: m.totalTurns, myUnitsRemaining: m.aUnitsRemaining, enemyUnitsRemaining: m.bUnitsRemaining },
       })),
