@@ -82,6 +82,9 @@
     .code-box code.blurred { color: var(--text-dim); user-select: none; }
     .danger-section { padding: 16px 0; }
     .danger-section .manage-label { color: #f66; }
+
+    /* Management panel shown as a centered modal (so the agent URL is never missed) */
+    .manage-modal-box { width: 92%; max-width: 560px; max-height: 86vh; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -112,7 +115,6 @@
 
       <div id="cmd-list"></div>
       <div id="cmd-loading" class="loading-placeholder"><span class="spinner"></span></div>
-      <div id="onboarding-container"></div>
     </div>
   </main>
 
@@ -131,8 +133,12 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="manage-modal">
+    <div class="manage-modal-box" id="manage-modal-body"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
-  <script src="/assets/me.js?v=1"></script>
+  <script src="/assets/me.js?v=2"></script>
 </body>
 </html>

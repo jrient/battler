@@ -11,11 +11,24 @@
   const btnCreate = $("#btn-create");
   const cmdList = $("#cmd-list");
   const cmdLoading = $("#cmd-loading");
-  const onboardingContainer = $("#onboarding-container");
+  const manageModal = $("#manage-modal");
+  const manageBody = $("#manage-modal-body");
   const modal = $("#modal");
   const modalInput = $("#modal-input");
   const modalErr = $("#modal-err");
   const toast = $("#toast");
+
+  // Open/close the management modal (front-and-center so the agent URL is never missed)
+  function openManage(cmd) {
+    cmd.bootstrapUrl = cmd.bootstrapUrl || `/agent-init/${cmd.bootstrapToken}`;
+    manageBody.innerHTML = renderManagementPanel(cmd);
+    bindManagementActions(cmd.commanderId);
+    manageModal.classList.add("open");
+  }
+  function closeManage() {
+    manageModal.classList.remove("open");
+    manageBody.innerHTML = "";
+  }
 
   // Set i18n text
   function setLabels() {
@@ -123,16 +136,6 @@
         cmdList.innerHTML = data.commanders.map(renderCommander).join("");
       }
       bindCmdActions();
-
-      // Auto-expand onboarding for commanders created within last 60 seconds
-      for (const cmd of data.commanders) {
-        const age = Date.now() - new Date(cmd.createdAt || 0).getTime();
-        if (cmd.bootstrapUrl && age < 60000) {
-          onboardingContainer.innerHTML = renderManagementPanel(cmd);
-          bindManagementActions(cmd.commanderId);
-          break;
-        }
-      }
     } catch (err) {
       if (err.status === 401) {
         signedOut.style.display = "block";
@@ -150,9 +153,7 @@
         const id = btn.dataset.id;
         try {
           const cmd = await api.get(`/api/me/commanders/${id}`);
-          onboardingContainer.innerHTML = renderManagementPanel(cmd);
-          bindManagementActions(cmd.commanderId);
-          onboardingContainer.scrollIntoView({ behavior: "smooth" });
+          openManage(cmd);
         } catch { showToast(t("common.error")); }
       });
     });
@@ -162,7 +163,7 @@
     // Close button
     const closeBtn = $(".btn-close-manage");
     if (closeBtn) {
-      closeBtn.addEventListener("click", () => { onboardingContainer.innerHTML = ""; });
+      closeBtn.addEventListener("click", closeManage);
     }
 
     // Rename toggle
@@ -222,7 +223,7 @@
         try {
           await api.post(`/api/me/commanders/${commanderId}/regenerate-bootstrap`);
           const cmd = await api.get(`/api/me/commanders/${commanderId}`);
-          onboardingContainer.innerHTML = renderManagementPanel(cmd);
+          manageBody.innerHTML = renderManagementPanel(cmd);
           bindManagementActions(cmd.commanderId);
           showToast(t("me.onboarding.regenerated"));
         } catch { showToast(t("common.error")); }
@@ -260,7 +261,7 @@
           const res = await api.post(`/api/me/commanders/${commanderId}/reset-key`);
           showToast(t("me.manage.key.reset_warning"));
           const cmd = await api.get(`/api/me/commanders/${commanderId}`);
-          onboardingContainer.innerHTML = renderManagementPanel(cmd);
+          manageBody.innerHTML = renderManagementPanel(cmd);
           bindManagementActions(cmd.commanderId);
         } catch { showToast(t("common.error")); }
       });
@@ -273,7 +274,7 @@
         if (!confirm(t("me.manage.delete_confirm"))) return;
         try {
           await api.del(`/api/me/commanders/${commanderId}`);
-          onboardingContainer.innerHTML = "";
+          closeManage();
           // Refresh the list
           const data = await api.get("/api/me");
           if (data.commanders.length === 0) {
@@ -300,6 +301,10 @@
 
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
 
+  // Close the management modal on overlay click or Esc
+  manageModal.addEventListener("click", (e) => { if (e.target === manageModal) closeManage(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && manageModal.classList.contains("open")) closeManage(); });
+
   $("#modal-submit").addEventListener("click", async () => {
     const name = modalInput.value.trim();
     if (!name) {
@@ -318,11 +323,8 @@
         cmdList.innerHTML = data.commanders.map(renderCommander).join("");
       }
       bindCmdActions();
-      // Show onboarding card for the new commander
-      cmd.bootstrapUrl = cmd.bootstrapUrl || `/agent-init/${cmd.bootstrapToken}`;
-      onboardingContainer.innerHTML = renderManagementPanel(cmd);
-      bindManagementActions(cmd.commanderId);
-      onboardingContainer.scrollIntoView({ behavior: "smooth" });
+      // Pop the management modal so the agent URL is front-and-center
+      openManage(cmd);
     } catch (err) {
       if (err.body && err.body.reason) {
         if (err.body.reason === "format") {
