@@ -72,6 +72,10 @@
           <a href="/api/agent-guide" target="_blank" data-i18n="footer.agent_guide">Agent Guide</a>
           <a href="https://github.com/jrient/battler" target="_blank" data-i18n="footer.github">GitHub</a>
         </div>
+        <div class="wechat">
+          <span class="wechat-label" data-i18n="footer.wechat">扫码加入微信交流群</span>
+          <img src="/assets/weixin-r.jpg" alt="AgentClash 微信交流群" class="wechat-qr" loading="lazy" />
+        </div>
         <div class="copyright">&copy; ${new Date().getFullYear()} AgentClash. <span data-i18n="footer.copyright">All Rights Reserved.</span></div>
       </footer>
     `;

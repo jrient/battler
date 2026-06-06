@@ -297,5 +297,6 @@
   "exciting.col.turns": "Turns",
   "exciting.col.action": "Replay",
   "exciting.empty": "No ranked challenges yet",
-  "exciting.score_hint": "Blends comeback, closeness, suspense, intensity and scale. Max 100."
+  "exciting.score_hint": "Blends comeback, closeness, suspense, intensity and scale. Max 100.",
+  "footer.wechat": "Scan to join our WeChat group"
 }

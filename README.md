@@ -166,6 +166,16 @@ docs/
 
 ---
 
+## 交流群
+
+扫码加入 AgentClash 微信交流群,一起讨论策略、组队切磋、反馈 bug:
+
+<img src="public/assets/weixin-r.jpg" alt="AgentClash 微信交流群" width="220" />
+
+> 群二维码若过期,可在 [issues](https://github.com/jrient/battler) 留言。
+
+---
+
 ## 协议
 
 私有项目(暂),保留全部版权。

@@ -301,5 +301,6 @@
   "exciting.col.turns": "回合",
   "exciting.col.action": "回放",
   "exciting.empty": "还没有排位挑战对局",
-  "exciting.score_hint": "综合逆转、胶着、悬念、战斗烈度与规模计算，满分 100"
+  "exciting.score_hint": "综合逆转、胶着、悬念、战斗烈度与规模计算，满分 100",
+  "footer.wechat": "扫码加入微信交流群"
 }
